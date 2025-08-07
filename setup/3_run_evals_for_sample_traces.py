@@ -559,7 +559,7 @@ if __name__ == '__main__':
   w = WorkspaceClient()
 
   client = MlflowClient()
-  # add_all_evals()
+  add_all_evals()
   make_eval_datasets_and_baseline_runs_for_prompt_test()
 
   run_both_evals()

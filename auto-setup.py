@@ -403,6 +403,138 @@ class AutoSetup:
         pattern = r'^[a-z0-9-]+$'
         return bool(re.match(pattern, app_name))
     
+    def _get_available_chat_models(self) -> List[str]:
+        """Get list of available chat completion models from Databricks."""
+        try:
+            # Use the model discovery logic to find chat models
+            from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
+            
+            endpoints = self.client.serving_endpoints.list()
+            
+            # Common chat model patterns
+            chat_model_patterns = [
+                'gpt-', 'claude-', 'gemini-', 'llama', 'mistral', 'databricks-',
+                'chat', 'instruct', 'turbo'
+            ]
+            
+            potential_chat_models = []
+            
+            for endpoint in endpoints:
+                model_name = endpoint.name.lower()
+                
+                # Check if it matches chat patterns
+                is_likely_chat = any(pattern in model_name for pattern in chat_model_patterns)
+                
+                # Exclude obvious non-chat models
+                is_not_chat = any(exclude in model_name for exclude in ['embedding', 'vision', 'audio', 'whisper', 'imageai'])
+                
+                if is_likely_chat and not is_not_chat:
+                    # Check if endpoint has chat task capability
+                    try:
+                        endpoint_details = self.client.serving_endpoints.get(name=endpoint.name)
+                        if hasattr(endpoint_details, 'config') and endpoint_details.config:
+                            # Check served entities for task type
+                            if hasattr(endpoint_details.config, 'served_entities') and endpoint_details.config.served_entities:
+                                for entity in endpoint_details.config.served_entities:
+                                    if (hasattr(entity, 'external_model') and entity.external_model and 
+                                        hasattr(entity.external_model, 'task') and 
+                                        entity.external_model.task == 'llm/v1/chat'):
+                                        potential_chat_models.append(endpoint.name)
+                                        break
+                                    elif (hasattr(entity, 'foundation_model') and entity.foundation_model and
+                                          hasattr(entity.foundation_model, 'name')):
+                                        # Foundation models typically support chat
+                                        potential_chat_models.append(endpoint.name)
+                                        break
+                    except Exception:
+                        # If we can't get details, include it based on name pattern
+                        potential_chat_models.append(endpoint.name)
+            
+            # Remove duplicates and sort
+            chat_models = sorted(list(set(potential_chat_models)))
+            
+            # Prioritize certain models at the top
+            priority_models = ['databricks-claude-3-7-sonnet', 'databricks-claude-sonnet-4', 'gpt-4o']
+            prioritized_models = []
+            
+            for priority in priority_models:
+                if priority in chat_models:
+                    prioritized_models.append(priority)
+                    chat_models.remove(priority)
+            
+            return prioritized_models + chat_models
+            
+        except Exception as e:
+            print(f"⚠️  Could not discover chat models: {e}")
+            # Return default options
+            return [
+                'databricks-claude-3-7-sonnet',
+                'databricks-claude-sonnet-4', 
+                'databricks-meta-llama-3-3-70b-instruct',
+                'gpt-4o'
+            ]
+
+    def _prompt_for_llm_model(self, suggested_model: str = None) -> str:
+        """Interactive LLM model selection with available chat models."""
+        print("\n🤖 LLM Model Selection")
+        
+        # Get available chat models
+        available_models = self._get_available_chat_models()
+        
+        if not available_models:
+            print("❌ No chat models found. Using default.")
+            return suggested_model or "databricks-claude-3-7-sonnet"
+        
+        print("Available chat completion models:")
+        
+        # Show suggested model first if it exists
+        if suggested_model and suggested_model in available_models:
+            print(f"   0. {suggested_model} (suggested)")
+            start_idx = 1
+        else:
+            start_idx = 0
+        
+        # Show other models
+        for i, model_name in enumerate(available_models):
+            if model_name != suggested_model:
+                print(f"   {start_idx + i}. {model_name}")
+        
+        max_choice = len(available_models) - 1 + (1 if suggested_model in available_models else 0)
+        
+        while True:
+            try:
+                choice = input(f"\nSelect model (0-{max_choice}) or press ENTER for default: ").strip()
+                
+                # Use default if empty
+                if not choice:
+                    return suggested_model or available_models[0]
+                
+                # Check if it's a number
+                try:
+                    choice_num = int(choice)
+                    if choice_num == 0 and suggested_model and suggested_model in available_models:
+                        return suggested_model
+                    elif 1 <= choice_num <= len(available_models):
+                        # Adjust index based on whether suggested model is shown
+                        if suggested_model and suggested_model in available_models:
+                            selected_models = [model for model in available_models if model != suggested_model]
+                            return selected_models[choice_num - 1]
+                        else:
+                            return available_models[choice_num - 1]
+                    else:
+                        print(f"❌ Please enter a number between 0 and {max_choice}")
+                        continue
+                except ValueError:
+                    # User typed a model name directly
+                    if choice in available_models:
+                        return choice
+                    else:
+                        print(f"❌ Model '{choice}' not found in available models")
+                        continue
+                        
+            except KeyboardInterrupt:
+                return suggested_model or available_models[0]
+
     def _prompt_for_app_name(self, suggested_app_name: str = None) -> str:
         """Interactive app name selection with permission checking."""
         print("\n📱 Databricks App Name Selection")
@@ -725,10 +857,8 @@ class AutoSetup:
             print("❌ App name is required")
             return False
         
-        # LLM model (optional)
-        llm_model = input("LLM model [databricks-claude-3-7-sonnet]: ").strip()
-        if not llm_model:
-            llm_model = "databricks-claude-3-7-sonnet"
+        # LLM model selection
+        llm_model = self._prompt_for_llm_model("databricks-claude-3-7-sonnet")
         
         # Store configuration
         self.config = {
@@ -1079,14 +1209,17 @@ class AutoSetup:
                 # Run with uv python to ensure proper environment
                 # Stream output to user in real-time
                 try:
+                    # Use full script path and run from project root
+                    script_full_path = f"setup/{script}"
                     process = subprocess.Popen(
-                        ['uv', 'run', 'python', str(script_path)],
-                        cwd=self.project_root,
+                        ['uv', 'run', 'python', script_full_path],
+                        cwd=self.project_root,  # Run from project root, not setup dir
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True,
                         bufsize=1,  # Line buffered
-                        universal_newlines=True
+                        universal_newlines=True,
+                        env=os.environ.copy()  # Inherit current environment
                     )
                     
                     # Print output in real-time
@@ -1100,10 +1233,18 @@ class AutoSetup:
                             output_lines.append(output)
                     
                     # Wait for process to complete and get return code
-                    return_code = process.poll()
+                    return_code = process.wait()
                     
                     if return_code != 0:
                         print(f"❌ Failed to run {script} (exit code: {return_code})")
+                        print("📋 Debug info:")
+                        print(f"   Command: uv run python {script_full_path}")
+                        print(f"   Working dir: {self.project_root}")
+                        print(f"   Script exists: {(self.project_root / script_full_path).exists()}")
+                        if output_lines:
+                            print("   Last few output lines:")
+                            for line in output_lines[-5:]:
+                                print(f"     {line.rstrip()}")
                         return False
                     else:
                         print(f"✅ Completed: {script}")
@@ -1111,6 +1252,13 @@ class AutoSetup:
                 except subprocess.TimeoutExpired:
                     print(f"❌ Script {script} timed out after 5 minutes")
                     process.kill()
+                    return False
+                except Exception as script_error:
+                    print(f"❌ Exception running {script}: {script_error}")
+                    print(f"📋 Debug info:")
+                    print(f"   Command: uv run python {script_full_path}")
+                    print(f"   Working dir: {self.project_root}")
+                    print(f"   Script exists: {(self.project_root / script_full_path).exists()}")
                     return False
             
             print("✅ All setup scripts completed successfully")
