@@ -112,6 +112,45 @@ fi
 echo "✅ Python environment ready"
 echo ""
 
+# Install frontend dependencies
+echo "📱 Installing frontend dependencies with bun..."
+if command -v bun >/dev/null 2>&1; then
+    # Remove any npm lock files that shouldn't be there
+    [ -f client/package-lock.json ] && rm client/package-lock.json
+    pushd client > /dev/null
+    bun install
+    popd > /dev/null
+    echo "✅ Frontend dependencies installed successfully!"
+else
+    echo "❌ bun is not installed."
+    echo ""
+    read -p "Would you like to install bun now? (Y/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo "⚠️  Skipping frontend dependency installation. You can install bun later with:"
+        echo "   curl -fsSL https://bun.sh/install | bash"
+    else
+        echo "📥 Installing bun..."
+        curl -fsSL https://bun.sh/install | bash
+        # Source the shell to get bun in PATH
+        export BUN_INSTALL="$HOME/.bun"
+        export PATH="$BUN_INSTALL/bin:$PATH"
+        if command -v bun >/dev/null 2>&1; then
+            echo "✅ bun installed successfully!"
+            # Remove any npm lock files that shouldn't be there
+            [ -f client/package-lock.json ] && rm client/package-lock.json
+            pushd client > /dev/null
+            bun install
+            popd > /dev/null
+            echo "✅ Frontend dependencies installed successfully!"
+        else
+            echo "❌ bun installation failed. Please restart your terminal and run setup again."
+        fi
+    fi
+fi
+
+echo ""
+
 # Run the actual auto-setup script with all arguments passed through
 echo "🔧 Running auto-setup.py..."
 echo ""

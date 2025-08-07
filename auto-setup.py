@@ -908,6 +908,23 @@ class AutoSetup:
             
             self.created_resources['app_name'] = app_name
             
+            # Pause to allow user to start the app manually if desired
+            print(f"\n📱 App '{app_name}' has been created successfully!")
+            print("You can now start the app manually from the Databricks UI if you prefer.")
+            print("Press Enter to automatically start the app, or Ctrl+C to skip automatic startup...")
+            try:
+                input()
+            except KeyboardInterrupt:
+                print("\n⏭️  Skipping automatic app startup")
+                return True
+            
+            # Start the app after creation
+            print(f"🚀 Starting app '{app_name}'...")
+            if not self.resource_manager.start_app(app_name, timeout_minutes=10):
+                print(f"⚠️  Failed to start app '{app_name}' - it may need to be started manually")
+                print(f"💡 You can start it later from the Databricks UI or after deployment")
+                # Don't fail the setup if app start fails - it can be started later
+            
             return True
         except Exception as e:
             print(f"❌ Failed to create app: {e}")
@@ -1010,17 +1027,17 @@ class AutoSetup:
         try:
             # Install Python dependencies with uv
             print("   Installing Python dependencies...")
-            result = subprocess.run(['uv', 'sync'], cwd=self.project_root, capture_output=True, text=True)
+            result = subprocess.run(['uv', 'sync'], cwd=self.project_root, text=True)
             if result.returncode != 0:
-                print(f"❌ Failed to install Python dependencies: {result.stderr}")
+                print(f"❌ Failed to install Python dependencies")
                 return False
             
             # Install frontend dependencies with bun
             print("   Installing frontend dependencies...")
             client_dir = self.project_root / 'client'
-            result = subprocess.run(['bun', 'install'], cwd=client_dir, capture_output=True, text=True)
+            result = subprocess.run(['bun', 'install'], cwd=client_dir, text=True)
             if result.returncode != 0:
-                print(f"❌ Failed to install frontend dependencies: {result.stderr}")
+                print(f"❌ Failed to install frontend dependencies")
                 return False
             
             print("✅ Dependencies installed successfully")
@@ -1132,12 +1149,11 @@ class AutoSetup:
             result = subprocess.run(
                 ['./deploy.sh'],
                 cwd=self.project_root,
-                capture_output=True,
                 text=True
             )
             
             if result.returncode != 0:
-                print(f"❌ Deployment failed: {result.stderr}")
+                print(f"❌ Deployment failed")
                 return False
             
             print("✅ Application deployed successfully")

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Deploy the Lakehouse App.
 # For configuration options see README.md and .env.local.
 
