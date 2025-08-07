@@ -24,7 +24,7 @@ if ! command -v uv >/dev/null 2>&1; then
         echo "📥 Installing uv..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
         # Source the shell to get uv in PATH
-        export PATH="$HOME/.cargo/bin:$PATH"
+        export PATH="$HOME/.local/bin:$PATH"
         if ! command -v uv >/dev/null 2>&1; then
             echo "❌ uv installation failed. Please restart your terminal and run this script again."
             exit 1
