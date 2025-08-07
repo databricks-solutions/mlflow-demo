@@ -15,6 +15,10 @@ import dotenv
 # Load environment variables from .env.local in project root
 dotenv.load_dotenv(project_root / '.env.local')
 
+import logging
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.ERROR)
+
 from mlflow_demo.agent.email_generator import EmailGenerator
 from server.routes.email import FeedbackRating
 
