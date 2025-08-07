@@ -1,6 +1,6 @@
 # Manual Setup Guide
 
-**Estimated time: 10 minutes work + 10 minutes waiting for scripts to run**
+**Estimated time: 15 minutes work + 15 minutes waiting for scripts to run**
 
 ## 🔧 Phase 1: Prerequisites Setup
 
