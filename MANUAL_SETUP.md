@@ -27,18 +27,19 @@
 
 ### 1.4 Unity Catalog Schema
 
-- [ ] **Create or select a Unity Catalog schema** with proper permissions
+- [ ] **Create or select a Unity Catalog schema** with proper permissions and naming convention (names without `-`)
   - You need **ALL** and **MANAGE** permissions on the schema
   - See [Unity Catalog schema documentation](https://docs.databricks.com/aws/en/schemas/create-schema)
   - **Quick option**: If you created a workspace in step 1.1, you can use the `workspace.default` schema
 
 ### 1.5 Install & Connect Databricks CLI
 
-- [ ] **Install the Databricks CLI**
+- [ ] **Install/Upgrade the Databricks CLI**
   - Follow the [installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
-  - **Verify installation**: Run `databricks --version` to confirm it's installed
+  - **Verify installation**: Run `databricks --version` to confirm it's installed with version >= 0.263.0
 - [ ] **Authenticate with your workspace**
   - Run `databricks auth login` and follow the prompts
+  - This should create a `DEFAULT` profile if first time configuring it) other **select an existing profile form the list of existing profiles**
 
 ### ✅ Prerequisites Checkpoint
 
@@ -49,6 +50,7 @@ Before proceeding to Phase 2, verify you have:
 - [ ] An MLflow experiment and API credentials
 - [ ] A Unity Catalog schema with proper permissions
 - [ ] Databricks CLI installed and authenticated
+- [ ] Verify that [uv](https://docs.astral.sh/uv/getting-started/installation/) was installed
 
 ---
 
@@ -67,6 +69,14 @@ Run these commands in order from the project root directory:
 - This script will prompt you for all the information from Phase 1
 - Have your app name, workspace directory, experiment ID, and schema name ready
 
+Once done, check that:
+- [ ] The `DATABRICKS_CONFIG_PROFILE` env variable is set to an existing profile on the `profiles` list (when you run `databricks auth profiles`) 
+- [ ] `bun` was installed and sourced correctly (run command: `which bun`) - If installed and not sourced, run these commands:
+```bash
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+```
+
 ### 2.2 Load Sample Data
 
 ```bash
@@ -82,9 +92,11 @@ Run these commands in order from the project root directory:
 ./watch.sh
 ```
 
-- Starts both backend (port 8000) and frontend development servers
-- Visit `http://localhost:8000` to verify the demo works locally
-- **Success criteria**: You should see the email generation interface and be able to generate emails
+- Starts both backend (port 8000) and frontend (port 3000) development servers
+- Visit [http://localhost:3000](http://localhost:3000) to verify the demo works locally
+
+- **Success criteria**:
+  - [ ] You should see the email generation interface and be able to generate emails
 
 ### ✅ Local Testing Checkpoint
 
