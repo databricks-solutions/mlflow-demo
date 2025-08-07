@@ -253,20 +253,42 @@ class DatabricksResourceManager:
         try:
             print(f"🔐 Granting permissions on schema '{schema_full_name}' to '{principal}'...")
             
-            # Import the proper SDK classes for grants
-            from databricks.sdk.service.catalog import PermissionsChange, Privilege
-            
+            # Use a simpler approach for granting permissions
             for permission in permissions:
-                # Create proper permission change objects
-                permission_change = PermissionsChange(
-                    add=[Privilege(principal=principal, privileges=[permission])]
-                )
-                
-                self.client.grants.update(
-                    securable_type="schema",
-                    full_name=schema_full_name,
-                    changes=[permission_change]
-                )
+                try:
+                    # Try using the grants API directly with proper parameters
+                    self.client.grants.update(
+                        securable_type="schema",
+                        full_name=schema_full_name,
+                        changes=[{
+                            "add": [{
+                                "principal": principal,
+                                "privileges": [permission]
+                            }]
+                        }]
+                    )
+                except Exception as direct_error:
+                    print(f"⚠️  Direct grants API failed: {direct_error}")
+                    # Try using the SDK objects with correct constructor
+                    try:
+                        from databricks.sdk.service.catalog import PermissionsChange, Privilege
+                        
+                        # The Privilege class likely expects different parameters
+                        privilege = Privilege(
+                            principal=principal,
+                            privileges=[permission]
+                        )
+                        
+                        permission_change = PermissionsChange(add=[privilege])
+                        
+                        self.client.grants.update(
+                            securable_type="schema",
+                            full_name=schema_full_name,
+                            changes=[permission_change]
+                        )
+                    except Exception as sdk_error:
+                        print(f"⚠️  SDK approach also failed: {sdk_error}")
+                        raise sdk_error
             print(f"✅ Granted {permissions} on '{schema_full_name}' to '{principal}'")
         except Exception as e:
             print(f"⚠️  Warning: Failed to grant permissions on schema: {e}")
@@ -297,27 +319,20 @@ class DatabricksResourceManager:
             
             for permission in permissions:
                 # Get current experiment permissions and add new one
-                try:
-                    # Note: MLflow experiment permissions are managed via workspace permissions
-                    # The SDK might not have direct support, so we'll use grants API
-                    self.client.grants.update(
-                        securable_type="mlflow-experiment",
-                        full_name=experiment_id,
-                        changes=[{
-                            "add": [{
-                                "principal": principal,
-                                "privileges": [permission]
-                            }]
-                        }]
-                    )
-                except Exception as grants_error:
-                    # Fallback: try workspace permissions API
-                    print(f"⚠️  Grants API failed for experiment, trying alternative method: {grants_error}")
-                    print(f"📋 Manual steps:")
-                    print(f"   1. Go to your MLflow experiment → {experiment_id} → Permissions tab")
-                    print(f"   2. Grant {permission} permission to service principal: {principal}")
-                    print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
-                    input()
+                # MLflow experiment permissions are complex and often require manual setup
+                # Skip automatic grants for experiments
+                print(f"⚠️  Automatic experiment permissions not supported, requiring manual setup")
+                
+                # Construct the direct URL to the experiment
+                workspace_host = self.client.config.host.rstrip('/')
+                experiment_url = f"{workspace_host}/ml/experiments/{experiment_id}"
+                
+                print(f"📋 Manual steps:")
+                print(f"   1. Open this URL: {experiment_url}")
+                print(f"   2. Click on the 'Permissions' tab")
+                print(f"   3. Grant {permission} permission to service principal: {principal}")
+                print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
+                input()
                     
             print(f"✅ Attempted to grant {permissions} on experiment '{experiment_id}' to '{principal}'")
         except Exception as e:
@@ -338,62 +353,27 @@ class DatabricksResourceManager:
         try:
             print(f"🔐 Granting model serving access to '{endpoint_name}' for app '{app_name}'...")
             
-            # Add serving endpoint as a resource to the app
-            # This is done via the apps API resource configuration
-            app = self.client.apps.get(app_name)
+            # Get the app's service principal
+            app_sp = self._get_app_service_principal(app_name)
+            if not app_sp:
+                print(f"❌ Could not find service principal for app '{app_name}'")
+                raise Exception(f"App service principal not found")
             
-            # Update app resources to include serving endpoint
-            # Note: Apps resource management via SDK may vary by version
+            # Grant serving endpoint permissions to the app's service principal
             try:
-                # Try to update app with serving endpoint resource
-                # The exact method depends on the Databricks SDK version and API
+                # Use the serving endpoint permissions API
+                self.client.serving_endpoints.update_permissions(
+                    serving_endpoint_id=endpoint_name,
+                    access_control_list=[{
+                        "principal": app_sp,
+                        "permission_level": "CAN_QUERY"
+                    }]
+                )
+                print(f"✅ Granted CAN_QUERY permission on serving endpoint '{endpoint_name}' to '{app_sp}'")
                 
-                # Option 1: Try apps update with resources
-                try:
-                    current_app = self.client.apps.get(app_name)
-                    
-                    # Get current resources and add serving endpoint
-                    current_resources = getattr(current_app, 'resources', [])
-                    
-                    # Add serving endpoint if not already present
-                    endpoint_resource = {
-                        "name": endpoint_name,
-                        "type": "serving_endpoint"
-                    }
-                    
-                    # Check if endpoint already exists in resources
-                    existing_endpoint = any(
-                        r.get('name') == endpoint_name and r.get('type') == 'serving_endpoint'
-                        for r in current_resources
-                    )
-                    
-                    if not existing_endpoint:
-                        current_resources.append(endpoint_resource)
-                        
-                        # Create updated App object with new resources
-                        from databricks.sdk.service.apps import App
-                        updated_app = App(
-                            name=current_app.name,
-                            description=current_app.description,
-                            default_source_code_path=current_app.default_source_code_path,
-                            resources=current_resources
-                        )
-                        
-                        # Update app with new resources
-                        self.client.apps.update(
-                            name=app_name,
-                            app=updated_app
-                        )
-                        print(f"✅ Added serving endpoint '{endpoint_name}' to app '{app_name}' resources")
-                    else:
-                        print(f"✅ Serving endpoint '{endpoint_name}' already configured for app '{app_name}'")
-                        
-                except AttributeError as attr_error:
-                    # SDK method doesn't exist, provide manual instructions
-                    raise Exception(f"SDK method not available: {attr_error}")
-                    
-            except Exception as resource_error:
-                print(f"⚠️  Could not add serving endpoint via SDK: {resource_error}")
+            except Exception as serving_error:
+                print(f"⚠️  Could not grant serving endpoint permissions via SDK: {serving_error}")
+                
                 print(f"📋 Manual steps:")
                 print(f"   1. Go to Databricks Apps → {app_name} → Edit")
                 print(f"   2. Click Next → Add Resource → Serving Endpoint")
