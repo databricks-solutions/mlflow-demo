@@ -221,6 +221,11 @@ class DatabricksResourceManager:
         except Exception as e:
             print(f"⚠️  Warning: Failed to grant permissions on schema: {e}")
             print("You may need to grant permissions manually via the UI")
+            print(f"📋 Manual steps:")
+            print(f"   1. Go to your Unity Catalog schema → {schema_full_name} → Permissions tab")
+            print(f"   2. Grant {permissions} to service principal: {principal}")
+            print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
+            input()
     
     def grant_experiment_permissions(self, experiment_id: str, principal: str,
                                    permissions: List[str] = None) -> None:
@@ -258,12 +263,20 @@ class DatabricksResourceManager:
                 except Exception as grants_error:
                     # Fallback: try workspace permissions API
                     print(f"⚠️  Grants API failed for experiment, trying alternative method: {grants_error}")
-                    print(f"💡 Please manually grant {permission} permission on experiment {experiment_id} to {principal}")
+                    print(f"📋 Manual steps:")
+                    print(f"   1. Go to your MLflow experiment → {experiment_id} → Permissions tab")
+                    print(f"   2. Grant {permission} permission to service principal: {principal}")
+                    print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
+                    input()
                     
             print(f"✅ Attempted to grant {permissions} on experiment '{experiment_id}' to '{principal}'")
         except Exception as e:
             print(f"⚠️  Warning: Failed to grant experiment permissions: {e}")
-            print(f"💡 Please manually grant permissions on experiment {experiment_id} via the MLflow UI")
+            print(f"📋 Manual steps:")
+            print(f"   1. Go to your MLflow experiment → {experiment_id} → Permissions tab")
+            print(f"   2. Grant {permissions} to service principal: {principal}")
+            print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
+            input()
     
     def grant_model_serving_permissions(self, app_name: str, endpoint_name: str) -> None:
         """Grant model serving endpoint access to a Databricks App.
@@ -331,14 +344,21 @@ class DatabricksResourceManager:
                     
             except Exception as resource_error:
                 print(f"⚠️  Could not add serving endpoint via SDK: {resource_error}")
-                print(f"💡 Please manually add serving endpoint '{endpoint_name}' to app '{app_name}' via UI:")
+                print(f"📋 Manual steps:")
                 print(f"   1. Go to Databricks Apps → {app_name} → Edit")
                 print(f"   2. Click Next → Add Resource → Serving Endpoint")
                 print(f"   3. Select '{endpoint_name}' → Save")
+                print("\n⏸️  Please complete the manual serving endpoint setup, then press Enter to continue...")
+                input()
                 
         except Exception as e:
             print(f"⚠️  Warning: Failed to grant model serving permissions: {e}")
-            print(f"💡 Please manually add serving endpoint access via the UI")
+            print(f"📋 Manual steps:")
+            print(f"   1. Go to Databricks Apps → {app_name} → Edit")
+            print(f"   2. Click Next → Add Resource → Serving Endpoint")
+            print(f"   3. Select '{endpoint_name}' → Save")
+            print("\n⏸️  Please complete the manual serving endpoint setup, then press Enter to continue...")
+            input()
     
     def get_app_service_principal(self, app_name: str) -> Optional[str]:
         """Get the service principal name for a Databricks App.
