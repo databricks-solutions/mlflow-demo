@@ -20,6 +20,10 @@ UC_SCHEMA = os.environ.get('UC_SCHEMA')
 PROMPT_ALIAS = os.environ.get('PROMPT_ALIAS')
 PROMPT_NAME = os.environ.get('PROMPT_NAME')
 
+import logging
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.ERROR)
+
 
 # Exit if required environment variables are not set
 if not UC_CATALOG or not UC_SCHEMA or not PROMPT_ALIAS or not PROMPT_NAME:
