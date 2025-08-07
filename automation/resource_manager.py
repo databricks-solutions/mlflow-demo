@@ -188,6 +188,56 @@ class DatabricksResourceManager:
             print(f"❌ Failed to create or check app '{name}': {e}")
             raise
     
+    def start_app(self, app_name: str, timeout_minutes: int = 20) -> bool:
+        """Start a Databricks App and wait for it to be active.
+        
+        Args:
+            app_name: Name of the app to start
+            timeout_minutes: Maximum time to wait for app to become active
+            
+        Returns:
+            True if app started successfully, False otherwise
+        """
+        try:
+            print(f"🚀 Starting Databricks App '{app_name}'...")
+            
+            # Start the app using the SDK's start_and_wait method
+            from datetime import timedelta
+            
+            try:
+                app = self.client.apps.start_and_wait(
+                    name=app_name,
+                    timeout=timedelta(minutes=timeout_minutes)
+                )
+                print(f"✅ App '{app_name}' started successfully and is now active")
+                return True
+                
+            except Exception as start_error:
+                print(f"⚠️  start_and_wait failed: {start_error}")
+                print(f"🔄 Trying alternative approach: start + wait...")
+                
+                # Fallback: use start() then wait separately
+                try:
+                    start_waiter = self.client.apps.start(app_name)
+                    start_waiter.result(timeout=timedelta(minutes=timeout_minutes))
+                    
+                    # Wait for app to become active
+                    app = self.client.apps.wait_get_app_active(
+                        name=app_name,
+                        timeout=timedelta(minutes=timeout_minutes)
+                    )
+                    print(f"✅ App '{app_name}' started successfully and is now active")
+                    return True
+                    
+                except Exception as fallback_error:
+                    print(f"❌ Failed to start app '{app_name}': {fallback_error}")
+                    print(f"💡 You may need to start the app manually from the Databricks UI")
+                    return False
+                
+        except Exception as e:
+            print(f"❌ Error starting app '{app_name}': {e}")
+            return False
+    
     def grant_schema_permissions(self, schema_full_name: str, principal: str, 
                                 permissions: List[str] = None) -> None:
         """Grant permissions on a schema to a principal.
