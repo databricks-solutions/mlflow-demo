@@ -41,11 +41,11 @@ def accuracy(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
   email_body = outputs.get('email_body')
-  user_input = outputs.get('user_input')
   input_facts = trace.search_spans(span_type='RETRIEVER')[0].outputs
 
   accuracy_guideline = """The email_body correctly references all factual information from the provided_info based on these rules:
@@ -56,12 +56,12 @@ def accuracy(trace):
 - All product usage statistics must be presented with the same metrics provided in the data
 - No references to CloudFlow features, services, or offerings unless specifically mentioned in the customer data
 - AUTOMATIC FAIL if any information is mentioned that is not explicitly provided in the data
-- It is OK if the email_body follows the user_input request to omit certain facts, as long as no fabricated facts are introduced."""
+"""
 
   # Use the proven Guidelines judge with our extracted email body
   return meets_guidelines(
     guidelines=accuracy_guideline,
-    context={'provided_info': input_facts, 'email': email_body, 'user_input': user_input},
+    context={'provided_info': input_facts, 'email': email_body},
   )
 
 
@@ -75,6 +75,7 @@ def personalized(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -111,6 +112,7 @@ def relevance(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -149,6 +151,7 @@ def email_is_grounded(trace):
   This demonstrates how to wrap the proven is_grounded judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
