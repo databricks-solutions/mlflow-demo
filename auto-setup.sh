@@ -102,10 +102,17 @@ if ! command -v databricks >/dev/null 2>&1; then
 fi
 
 cli_version=$(databricks --version 2>/dev/null | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' | sed 's/v//' || echo "0.0.0")
+echo "Found Databricks CLI version: $cli_version"
 required_cli="0.262.0"
 
+echo "Comparing Databricks CLI version $cli_version with required $required_cli"
+
+set +e  # Temporarily disable exit on error
 version_compare "$cli_version" "$required_cli"
 result=$?
+set -e  # Re-enable exit on error
+
+echo "CLI version comparison result: $result (0=equal, 1=newer, 2=older)"
 
 if [[ $result -eq 2 ]]; then
     echo "❌ Databricks CLI version $cli_version is too old. Required: >= $required_cli"
