@@ -10,7 +10,7 @@ This interactive demo is deployed as a Databricks app in your Databricks workspa
 - View our [website](https://www.managed-mlflow.com/genai)
 - Get started via the [documentation](https://docs.databricks.com/aws/en/mlflow3/genai/)
 
-<img width="1723" alt="image" src="https://i.imgur.com/MXhaayF.gif" />
+![overview](https://i.imgur.com/MXhaayF.gif)
 
 ## Installing the demo
 
