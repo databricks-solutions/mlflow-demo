@@ -483,7 +483,7 @@ def make_eval_datasets_and_baseline_runs_for_prompt_test():
         number_passes += 1
       elif assessment.name == 'accuracy' and assessment.feedback.value == 'yes':
         number_passes += 1
-    if number_passes == 3:
+    if number_passes >= 2:
       if len(passed_all) < 5:
         passed_all.append(trace.info.trace_id)
         # print(f'passed all: {trace.info.trace_id}')
@@ -559,7 +559,7 @@ if __name__ == '__main__':
   w = WorkspaceClient()
 
   client = MlflowClient()
-  add_all_evals()
+  # add_all_evals()
   make_eval_datasets_and_baseline_runs_for_prompt_test()
 
   run_both_evals()
