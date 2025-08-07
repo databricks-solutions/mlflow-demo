@@ -163,7 +163,7 @@ Claude Code understands the project structure and can help with development task
 **❌ "Profile error" when running `./watch.sh`**
 
 - **Solution**: The script handles optional `DATABRICKS_CONFIG_PROFILE` - if not set, it uses default auth
-- **Check**: Ensure your `.env.local` has valid `DATABRICKS_HOST` and `DATABRICKS_TOKEN`
+- **Check**: Ensure your `.env.local` has valid `DATABRICKS_HOST` and you are authenticated via `databricks auth login`
 
 **❌ Port 8000 already in use**
 
