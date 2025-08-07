@@ -158,8 +158,16 @@ class DatabricksResourceManager:
                     no_compute=True  # Don't start the app immediately
                 )
                 
-                # Wait for the creation to complete
-                app = app_waiter.result()
+                # Wait for the creation to complete - app may be in STOPPED state which is expected
+                try:
+                    app = app_waiter.result()
+                except Exception as waiter_error:
+                    # If waiter fails due to STOPPED state, try to get the app directly
+                    if "STOPPED" in str(waiter_error):
+                        print(f"📱 App created but in STOPPED state (expected with no_compute=True)")
+                        app = self.client.apps.get(name)
+                    else:
+                        raise waiter_error
                 
                 print(f"✅ Created Databricks App '{name}'")
                 self.created_resources.append(('app', name))
@@ -194,16 +202,20 @@ class DatabricksResourceManager:
         
         try:
             print(f"🔐 Granting permissions on schema '{schema_full_name}' to '{principal}'...")
+            
+            # Import the proper SDK classes for grants
+            from databricks.sdk.service.catalog import PermissionsChange, Privilege
+            
             for permission in permissions:
+                # Create proper permission change objects
+                permission_change = PermissionsChange(
+                    add=[Privilege(principal=principal, privileges=[permission])]
+                )
+                
                 self.client.grants.update(
                     securable_type="schema",
                     full_name=schema_full_name,
-                    changes=[{
-                        "add": [{
-                            "principal": principal,
-                            "privileges": [permission]
-                        }]
-                    }]
+                    changes=[permission_change]
                 )
             print(f"✅ Granted {permissions} on '{schema_full_name}' to '{principal}'")
         except Exception as e:
@@ -295,10 +307,19 @@ class DatabricksResourceManager:
                     if not existing_endpoint:
                         current_resources.append(endpoint_resource)
                         
+                        # Create updated App object with new resources
+                        from databricks.sdk.service.apps import App
+                        updated_app = App(
+                            name=current_app.name,
+                            description=current_app.description,
+                            default_source_code_path=current_app.default_source_code_path,
+                            resources=current_resources
+                        )
+                        
                         # Update app with new resources
                         self.client.apps.update(
                             name=app_name,
-                            resources=current_resources
+                            app=updated_app
                         )
                         print(f"✅ Added serving endpoint '{endpoint_name}' to app '{app_name}' resources")
                     else:
