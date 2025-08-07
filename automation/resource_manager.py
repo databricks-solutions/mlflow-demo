@@ -238,6 +238,90 @@ class DatabricksResourceManager:
             print(f"❌ Error starting app '{app_name}': {e}")
             return False
     
+    def grant_catalog_permissions(self, catalog_name: str, principal: str, 
+                                 permissions: List[str] = None) -> None:
+        """Grant permissions on a catalog to a principal using SQL GRANT statements.
+        
+        Args:
+            catalog_name: Name of the catalog
+            principal: Principal to grant permissions to (e.g., service principal)
+            permissions: List of permissions to grant
+        """
+        if permissions is None:
+            permissions = ["USE CATALOG"]
+        
+        try:
+            print(f"🔐 Granting catalog permissions on '{catalog_name}' to '{principal}'...")
+            
+            # Use SQL GRANT statements as the SDK grants.update doesn't support CATALOG securable type
+            success_count = 0
+            
+            # First, try to get a warehouse_id
+            warehouse_id = None
+            try:
+                warehouses = self.client.warehouses.list()
+                if warehouses:
+                    # Use the first available warehouse
+                    warehouse_id = warehouses[0].id
+                    print(f"   Using warehouse: {warehouse_id}")
+            except Exception as e:
+                print(f"   ⚠️  Could not find warehouse, trying without: {e}")
+            
+            for permission in permissions:
+                try:
+                    # CRITICAL: Get application_id for the service principal (like experiments API)
+                    # SQL GRANT also needs application_id, not display name
+                    application_id = None
+                    try:
+                        sps = self.client.service_principals.list()
+                        for sp in sps:
+                            if sp.display_name == principal:
+                                application_id = sp.application_id
+                                print(f"   Found service principal application_id: {application_id}")
+                                break
+                        
+                        if not application_id:
+                            raise Exception(f"Could not find application_id for service principal: {principal}")
+                            
+                    except Exception as e:
+                        print(f"   ⚠️  Could not get service principal application_id: {e}")
+                        # Fallback to original principal name
+                        application_id = principal
+                    
+                    # Construct SQL GRANT statement
+                    # Note: Service principal names with spaces need to be quoted
+                    quoted_principal = f"`{application_id}`"
+                    sql_statement = f"GRANT {permission} ON CATALOG {catalog_name} TO {quoted_principal}"
+                    
+                    print(f"   Executing: {sql_statement}")
+                    
+                    # Execute the SQL statement
+                    self.client.statement_execution.execute_statement(
+                        warehouse_id=warehouse_id,
+                        statement=sql_statement
+                    )
+                    
+                    success_count += 1
+                    print(f"   ✅ Granted {permission}")
+                    
+                except Exception as sql_error:
+                    print(f"   ⚠️  Failed to grant {permission}: {sql_error}")
+                    continue
+            
+            if success_count > 0:
+                print(f"✅ Successfully granted {success_count}/{len(permissions)} catalog permissions on '{catalog_name}' to '{principal}'")
+            else:
+                raise Exception("No catalog permissions were successfully granted")
+                
+        except Exception as e:
+            print(f"⚠️  Warning: Failed to grant catalog permissions: {e}")
+            print("You may need to grant catalog permissions manually via the UI")
+            print(f"📋 Manual steps:")
+            print(f"   1. Go to your Unity Catalog → {catalog_name} → Permissions tab")
+            print(f"   2. Grant {permissions} to service principal: {principal}")
+            print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
+            input()
+
     def grant_schema_permissions(self, schema_full_name: str, principal: str, 
                                 permissions: List[str] = None) -> None:
         """Grant permissions on a schema to a principal using SQL GRANT statements.
@@ -475,7 +559,7 @@ class DatabricksResourceManager:
                 raise e
             
             # Check if this is a Foundation Model endpoint (which may not support permissions)
-            if any(fm_name in endpoint_name.lower() for fm_name in ['databricks-', 'gpt-', 'claude-', 'gemini-']):
+            if any(fm_name in endpoint_name.lower() for fm_name in ['databricks-']):
                 print(f"⚠️  '{endpoint_name}' appears to be a Foundation Model endpoint")
                 print(f"   Foundation Model endpoints typically don't require explicit permissions")
                 print(f"   The app should have access by default if it has proper workspace permissions")

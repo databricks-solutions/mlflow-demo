@@ -1079,6 +1079,15 @@ class AutoSetup:
             if service_principal:
                 print(f"✅ Found app service principal: {service_principal}")
                 
+                # Grant catalog permissions first (USE CATALOG)
+                catalog_name = self.config['UC_CATALOG']
+                print(f"🔐 Granting catalog permissions on {catalog_name}...")
+                self.resource_manager.grant_catalog_permissions(
+                    catalog_name, 
+                    service_principal,
+                    permissions=['USE CATALOG']
+                )
+                
                 # Grant schema permissions (ALL PERMISSIONS + MANAGE)
                 schema_name = f"{self.config['UC_CATALOG']}.{self.config['UC_SCHEMA']}"
                 print(f"🔐 Granting schema permissions on {schema_name}...")
