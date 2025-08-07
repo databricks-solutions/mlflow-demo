@@ -11,6 +11,10 @@ import dotenv
 dotenv.load_dotenv(project_root / '.env.local')
 
 
+import logging
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.ERROR)
+
 def write_env_variable(key, value):
   """Write or update a variable in .env.local file."""
   env_file = project_root / '.env.local'

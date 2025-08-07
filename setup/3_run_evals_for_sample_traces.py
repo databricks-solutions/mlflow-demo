@@ -20,6 +20,10 @@ UC_SCHEMA = os.environ.get('UC_SCHEMA')
 PROMPT_ALIAS = os.environ.get('PROMPT_ALIAS')
 PROMPT_NAME = os.environ.get('PROMPT_NAME')
 
+import logging
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.ERROR)
+
 
 # Exit if required environment variables are not set
 if not UC_CATALOG or not UC_SCHEMA or not PROMPT_ALIAS or not PROMPT_NAME:
@@ -479,7 +483,7 @@ def make_eval_datasets_and_baseline_runs_for_prompt_test():
         number_passes += 1
       elif assessment.name == 'accuracy' and assessment.feedback.value == 'yes':
         number_passes += 1
-    if number_passes == 3:
+    if number_passes >= 2:
       if len(passed_all) < 5:
         passed_all.append(trace.info.trace_id)
         # print(f'passed all: {trace.info.trace_id}')

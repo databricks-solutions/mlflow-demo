@@ -11,6 +11,10 @@ import dotenv
 # Load environment variables from .env.local in project root
 dotenv.load_dotenv(project_root / '.env.local')
 
+import logging
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.ERROR)
+
 from mlflow_demo.agent.prompts import ORIGINAL_PROMPT_TEMPLATE
 
 # Unity Catalog schema to store the prompt in
