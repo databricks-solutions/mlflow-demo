@@ -18,7 +18,7 @@ Choose your installation method:
 
 ### 🤖 Option A: Automated Setup (Recommended)
 
-**Estimated time: 5 minutes user input + 15 minutes automated setup**
+**Estimated time: 5 minutes user input + 15 minutes waiting for scripts to run**
 
 The automated setup handles resource creation, configuration, and deployment for you using the Databricks Workspace SDK.
 
@@ -36,10 +36,10 @@ The `./auto-setup.sh` script will run all the steps outlined in the [Manual Setu
   - Verify installation: Run `databricks --version` to confirm it's installed
 - [ ] **2. Authenticate with your workspace**
   - Run `databricks auth login` and follow the prompts
+  - Configure a profile named `DEFAULT`
 - [ ] **3. Clone repo and run setup script**
 
     ```bash
-    # Clone the repository and run automation
     git clone https://github.com/databricks-solutions/mlflow-demo.git
     cd mlflow-demo
     ./auto-setup.sh
