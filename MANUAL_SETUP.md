@@ -39,7 +39,7 @@
   - **Verify installation**: Run `databricks --version` to confirm it's installed with version >= 0.263.0
 - [ ] **Authenticate with your workspace**
   - Run `databricks auth login` and follow the prompts
-  - This should create a `DEFAULT` profile if first time configuring it) other **select an existing profile form the list of existing profiles**
+  - This should create a `DEFAULT` profile (if first time configuring it) otherwise  **select a profile form the list of existing ones**
 
 ### ✅ Prerequisites Checkpoint
 
