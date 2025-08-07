@@ -37,7 +37,7 @@ fi
 echo "🔍 Checking Python version..."
 python_version=$(python3 --version 2>/dev/null | cut -d' ' -f2 || python --version 2>/dev/null | cut -d' ' -f2 || echo "0.0.0")
 echo "Found Python version: $python_version"
-required_python="3.10.12"
+required_python="3.10.16"
 
 # Function to compare versions
 version_compare() {
