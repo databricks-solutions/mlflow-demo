@@ -37,7 +37,7 @@ fi
 echo "🔍 Checking Python version..."
 python_version=$(python3 --version 2>/dev/null | cut -d' ' -f2 || python --version 2>/dev/null | cut -d' ' -f2 || echo "0.0.0")
 echo "Found Python version: $python_version"
-required_python="3.10.16"
+required_python="3.10.12"
 
 # Function to compare versions
 version_compare() {
@@ -77,22 +77,19 @@ version_compare() {
 
 echo "Comparing Python version $python_version with required $required_python"
 
-if version_compare "$python_version" "$required_python"; then
-    result=$?
-    echo "Version comparison result: $result (0=equal, 1=newer, 2=older)"
-    
-    if [[ $result -eq 2 ]]; then
-        echo "❌ Python version $python_version is too old. Required: >= $required_python"
-        echo "   Please install a newer version of Python"
-        exit 1
-    else
-        echo "✅ Python version $python_version is supported"
-    fi
-else
-    echo "❌ Error comparing Python versions"
-    echo "   Found: $python_version, Required: >= $required_python"
-    echo "   Please install Python 3.10.16 or newer"
+set +e  # Temporarily disable exit on error
+version_compare "$python_version" "$required_python"
+result=$?
+set -e  # Re-enable exit on error
+
+echo "Version comparison result: $result (0=equal, 1=newer, 2=older)"
+
+if [[ $result -eq 2 ]]; then
+    echo "❌ Python version $python_version is too old. Required: >= $required_python"
+    echo "   Please install a newer version of Python"
     exit 1
+else
+    echo "✅ Python version $python_version is supported"
 fi
 
 # Check Databricks CLI version (>= 0.262.0)
