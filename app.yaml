@@ -1,0 +1,25 @@
+command: [
+  "uvicorn",
+  "server.app:app"
+]
+env:
+  - name: 'MLFLOW_TRACKING_URI'
+    value: 'databricks'
+  - name: 'MLFLOW_EXPERIMENT_ID'
+    value: 'your-experiment-id'
+  - name: 'LOW_ACCURACY_RESULTS_URL'
+    value: 'placeholder-low-accuracy-url'
+  - name: 'REGRESSION_RESULTS_URL'
+    value: 'placeholder-regression-url'
+  - name: 'METRICS_RESULT_URL'
+    value: 'placeholder-metrics-url'
+  - name: 'LLM_MODEL'
+    value: 'placeholder-llm-model'
+  - name: 'UC_CATALOG'
+    value: 'placeholder-uc-catalog'
+  - name: 'UC_SCHEMA'
+    value: 'placeholder-uc-schema'
+  - name: 'MLFLOW_ENABLE_ASYNC_TRACE_LOGGING'
+    value: 'placeholder-async-logging'
+  - name: 'PROMPT_NAME'
+    value: 'placeholder-prompt-name'
