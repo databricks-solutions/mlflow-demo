@@ -240,7 +240,7 @@ class DatabricksResourceManager:
     
     def grant_schema_permissions(self, schema_full_name: str, principal: str, 
                                 permissions: List[str] = None) -> None:
-        """Grant permissions on a schema to a principal.
+        """Grant permissions on a schema to a principal using SQL GRANT statements.
         
         Args:
             schema_full_name: Full schema name (catalog.schema)
@@ -253,43 +253,66 @@ class DatabricksResourceManager:
         try:
             print(f"🔐 Granting permissions on schema '{schema_full_name}' to '{principal}'...")
             
-            # Use a simpler approach for granting permissions
+            # Use SQL GRANT statements as the SDK grants.update doesn't support SCHEMA securable type
+            success_count = 0
+            
+            # First, try to get a warehouse_id
+            warehouse_id = None
+            try:
+                warehouses = self.client.warehouses.list()
+                if warehouses:
+                    # Use the first available warehouse
+                    warehouse_id = warehouses[0].id
+                    print(f"   Using warehouse: {warehouse_id}")
+            except Exception as e:
+                print(f"   ⚠️  Could not find warehouse, trying without: {e}")
+            
             for permission in permissions:
                 try:
-                    # Try using the grants API directly with proper parameters
-                    self.client.grants.update(
-                        securable_type="schema",
-                        full_name=schema_full_name,
-                        changes=[{
-                            "add": [{
-                                "principal": principal,
-                                "privileges": [permission]
-                            }]
-                        }]
-                    )
-                except Exception as direct_error:
-                    print(f"⚠️  Direct grants API failed: {direct_error}")
-                    # Try using the SDK objects with correct constructor
+                    # CRITICAL: Get application_id for the service principal (like experiments API)
+                    # SQL GRANT also needs application_id, not display name
+                    application_id = None
                     try:
-                        from databricks.sdk.service.catalog import PermissionsChange, Privilege
+                        sps = self.client.service_principals.list()
+                        for sp in sps:
+                            if sp.display_name == principal:
+                                application_id = sp.application_id
+                                print(f"   Found service principal application_id: {application_id}")
+                                break
                         
-                        # The Privilege class likely expects different parameters
-                        privilege = Privilege(
-                            principal=principal,
-                            privileges=[permission]
-                        )
-                        
-                        permission_change = PermissionsChange(add=[privilege])
-                        
-                        self.client.grants.update(
-                            securable_type="schema",
-                            full_name=schema_full_name,
-                            changes=[permission_change]
-                        )
-                    except Exception as sdk_error:
-                        print(f"⚠️  SDK approach also failed: {sdk_error}")
-                        raise sdk_error
-            print(f"✅ Granted {permissions} on '{schema_full_name}' to '{principal}'")
+                        if not application_id:
+                            raise Exception(f"Could not find application_id for service principal: {principal}")
+                            
+                    except Exception as e:
+                        print(f"   ⚠️  Could not get service principal application_id: {e}")
+                        # Fallback to original principal name
+                        application_id = principal
+                    
+                    # Construct SQL GRANT statement
+                    # Note: Service principal names with spaces need to be quoted
+                    quoted_principal = f"`{application_id}`"
+                    sql_statement = f"GRANT {permission} ON SCHEMA {schema_full_name} TO {quoted_principal}"
+                    
+                    print(f"   Executing: {sql_statement}")
+                    
+                    # Execute the SQL statement
+                    self.client.statement_execution.execute_statement(
+                        warehouse_id=warehouse_id,
+                        statement=sql_statement
+                    )
+                    
+                    success_count += 1
+                    print(f"   ✅ Granted {permission}")
+                    
+                except Exception as sql_error:
+                    print(f"   ⚠️  Failed to grant {permission}: {sql_error}")
+                    continue
+            
+            if success_count > 0:
+                print(f"✅ Successfully granted {success_count}/{len(permissions)} permissions on '{schema_full_name}' to '{principal}'")
+            else:
+                raise Exception("No permissions were successfully granted")
+                
         except Exception as e:
             print(f"⚠️  Warning: Failed to grant permissions on schema: {e}")
             print("You may need to grant permissions manually via the UI")
@@ -314,32 +337,107 @@ class DatabricksResourceManager:
         try:
             print(f"🔐 Granting permissions on experiment '{experiment_id}' to '{principal}'...")
             
-            # Use MLflow SDK for experiment permissions
-            mlflow.set_tracking_uri("databricks")
+            # Import necessary types from the SDK
+            from databricks.sdk.service.ml import ExperimentAccessControlRequest, ExperimentPermissionLevel
             
-            for permission in permissions:
-                # Get current experiment permissions and add new one
-                # MLflow experiment permissions are complex and often require manual setup
-                # Skip automatic grants for experiments
-                print(f"⚠️  Automatic experiment permissions not supported, requiring manual setup")
+            # Map permission strings to SDK enums
+            permission_map = {
+                "CAN_MANAGE": ExperimentPermissionLevel.CAN_MANAGE,
+                "CAN_EDIT": ExperimentPermissionLevel.CAN_EDIT,
+                "CAN_READ": ExperimentPermissionLevel.CAN_READ
+            }
+            
+            # CRITICAL: Need to get the application_id from the service principal name
+            # The experiments API requires application_id, not display name
+            application_id = None
+            try:
+                sps = self.client.service_principals.list()
+                for sp in sps:
+                    if sp.display_name == principal:
+                        application_id = sp.application_id
+                        print(f"   Found service principal application_id: {application_id}")
+                        break
                 
-                # Construct the direct URL to the experiment
-                workspace_host = self.client.config.host.rstrip('/')
-                experiment_url = f"{workspace_host}/ml/experiments/{experiment_id}"
-                
-                print(f"📋 Manual steps:")
-                print(f"   1. Open this URL: {experiment_url}")
-                print(f"   2. Click on the 'Permissions' tab")
-                print(f"   3. Grant {permission} permission to service principal: {principal}")
-                print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
-                input()
+                if not application_id:
+                    raise Exception(f"Could not find application_id for service principal: {principal}")
                     
-            print(f"✅ Attempted to grant {permissions} on experiment '{experiment_id}' to '{principal}'")
+            except Exception as e:
+                print(f"⚠️  Could not get service principal application_id: {e}")
+                raise e
+            
+            # First, get existing permissions to preserve them
+            existing_permissions = self.client.experiments.get_permissions(experiment_id=experiment_id)
+            
+            # Start with existing access control list
+            access_control_list = []
+            
+            # Add existing permissions (only preserve direct grants, not inherited)
+            if existing_permissions.access_control_list:
+                for existing_acl in existing_permissions.access_control_list:
+                    # Skip if this is the same principal we're about to add (to avoid duplicates)
+                    if existing_acl.service_principal_name == application_id:
+                        continue
+                    
+                    # Only preserve direct (non-inherited) permissions
+                    direct_permissions = [p for p in existing_acl.all_permissions if not p.inherited]
+                    if not direct_permissions:
+                        continue
+                    
+                    # Convert existing permission to request format
+                    permission_level = direct_permissions[0].permission_level
+                    
+                    if existing_acl.user_name:
+                        access_control_list.append(ExperimentAccessControlRequest(
+                            user_name=existing_acl.user_name,
+                            permission_level=permission_level
+                        ))
+                    elif existing_acl.group_name:
+                        access_control_list.append(ExperimentAccessControlRequest(
+                            group_name=existing_acl.group_name,
+                            permission_level=permission_level
+                        ))
+                    elif existing_acl.service_principal_name:
+                        access_control_list.append(ExperimentAccessControlRequest(
+                            service_principal_name=existing_acl.service_principal_name,
+                            permission_level=permission_level
+                        ))
+            
+            # Add new permissions for the specified principal using application_id
+            for permission in permissions:
+                if permission in permission_map:
+                    # Create ExperimentAccessControlRequest for service principal using application_id
+                    access_control_request = ExperimentAccessControlRequest(
+                        service_principal_name=application_id,
+                        permission_level=permission_map[permission]
+                    )
+                    access_control_list.append(access_control_request)
+                else:
+                    print(f"⚠️  Unknown permission: {permission}, skipping...")
+                    continue
+            
+            if not access_control_list:
+                print("⚠️  No valid permissions found, skipping permission grant")
+                return
+            
+            # Use the experiments API to set permissions (replaces all permissions)
+            result = self.client.experiments.set_permissions(
+                experiment_id=experiment_id,
+                access_control_list=access_control_list
+            )
+            
+            print(f"✅ Granted {permissions} on experiment '{experiment_id}' to '{principal}' (preserved existing permissions)")
+            
         except Exception as e:
             print(f"⚠️  Warning: Failed to grant experiment permissions: {e}")
+            
+            # Fallback to manual instructions
+            workspace_host = self.client.config.host.rstrip('/')
+            experiment_url = f"{workspace_host}/ml/experiments/{experiment_id}"
+            
             print(f"📋 Manual steps:")
-            print(f"   1. Go to your MLflow experiment → {experiment_id} → Permissions tab")
-            print(f"   2. Grant {permissions} to service principal: {principal}")
+            print(f"   1. Open this URL: {experiment_url}")
+            print(f"   2. Click on the 'Permissions' tab")
+            print(f"   3. Grant {permissions} to service principal: {principal}")
             print("\n⏸️  Please complete the manual permission setup, then press Enter to continue...")
             input()
     
@@ -353,23 +451,54 @@ class DatabricksResourceManager:
         try:
             print(f"🔐 Granting model serving access to '{endpoint_name}' for app '{app_name}'...")
             
-            # Get the app's service principal
-            app_sp = self._get_app_service_principal(app_name)
-            if not app_sp:
+            # Get the app's service principal details
+            app_sp_display_name = self.get_app_service_principal(app_name)
+            if not app_sp_display_name:
                 print(f"❌ Could not find service principal for app '{app_name}'")
                 raise Exception(f"App service principal not found")
             
-            # Grant serving endpoint permissions to the app's service principal
+            # Get the service principal application_id (consistent with other APIs)
+            application_id = None
             try:
-                # Use the serving endpoint permissions API
-                self.client.serving_endpoints.update_permissions(
-                    serving_endpoint_id=endpoint_name,
-                    access_control_list=[{
-                        "principal": app_sp,
-                        "permission_level": "CAN_QUERY"
-                    }]
+                sps = self.client.service_principals.list()
+                for sp in sps:
+                    if sp.display_name == app_sp_display_name:
+                        application_id = sp.application_id
+                        print(f"   Found service principal application_id: {application_id}")
+                        break
+                
+                if not application_id:
+                    raise Exception(f"Could not find application_id for service principal: {app_sp_display_name}")
+                    
+            except Exception as e:
+                print(f"⚠️  Could not get service principal application_id: {e}")
+                raise e
+            
+            # Check if this is a Foundation Model endpoint (which may not support permissions)
+            if any(fm_name in endpoint_name.lower() for fm_name in ['databricks-', 'gpt-', 'claude-', 'gemini-']):
+                print(f"⚠️  '{endpoint_name}' appears to be a Foundation Model endpoint")
+                print(f"   Foundation Model endpoints typically don't require explicit permissions")
+                print(f"   The app should have access by default if it has proper workspace permissions")
+                print(f"✅ Skipping explicit permission grant for Foundation Model endpoint")
+                return
+            
+            # Try to grant permissions to custom serving endpoints
+            try:
+                # Import proper serving endpoint permission classes
+                from databricks.sdk.service.serving import ServingEndpointAccessControlRequest, ServingEndpointPermissionLevel
+                
+                # Create access control request using application_id
+                access_control_request = ServingEndpointAccessControlRequest(
+                    service_principal_name=application_id,
+                    permission_level=ServingEndpointPermissionLevel.CAN_QUERY
                 )
-                print(f"✅ Granted CAN_QUERY permission on serving endpoint '{endpoint_name}' to '{app_sp}'")
+                
+                # Use the serving endpoint permissions API
+                result = self.client.serving_endpoints.update_permissions(
+                    serving_endpoint_id=endpoint_name,
+                    access_control_list=[access_control_request]
+                )
+                print(f"✅ Granted CAN_QUERY permission on serving endpoint '{endpoint_name}' to '{app_sp_display_name}'")
                 
             except Exception as serving_error:
                 print(f"⚠️  Could not grant serving endpoint permissions via SDK: {serving_error}")
