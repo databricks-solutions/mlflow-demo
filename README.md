@@ -50,10 +50,10 @@ This interactive demo is deployed as a Databricks app in your Databricks workspa
 
 - [ ] **Install the Databricks CLI**
   - Follow the [installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
-  - **Verify installation**: Run `databricks --version` to confirm it's installed
+  - **Verify installation**: Run `databricks --version` to confirm it's installed with version >= `0.263.0` (otherwise `brew upgrade databricks`)
 - [ ] **Authenticate with your workspace**
   - Run `databricks auth login` and follow the prompts
-
+  - Make sure a `DEFAULT` profile is created, otherwise create one and use this when prompted for the `DATABRICKS_CONFIG_PROFILE` environment variable in section 2
 ### ✅ Prerequisites Checkpoint
 
 Before proceeding to Phase 2, verify you have:
@@ -63,6 +63,7 @@ Before proceeding to Phase 2, verify you have:
 - [ ] An MLflow experiment and API credentials
 - [ ] A Unity Catalog schema with proper permissions
 - [ ] Databricks CLI installed and authenticated
+- [ ] Verify that [uv](https://docs.astral.sh/uv/getting-started/installation/) was installed
 
 ---
 
@@ -70,7 +71,8 @@ Before proceeding to Phase 2, verify you have:
 
 > ⚠️ **STOP**: Only proceed if you've completed ALL items in Phase 1 above.
 
-Run these commands in order from the project root directory:
+After cloning the rpository (`git clone https://github.com/databricks-solutions/mlflow-demo.git
+cd mlflow-demo`), run these commands in order from the project root directory:
 
 ### 2.1 Configure Environment Variables
 
@@ -80,6 +82,14 @@ Run these commands in order from the project root directory:
 
 - This script will prompt you for all the information from Phase 1
 - Have your app name, workspace directory, experiment ID, and schema name ready
+
+**Verify that:**
+- [ ] The `DATABRICKS_CONFIG_PROFILE` env variable is set to an existing profile on the `profiles` list (when you run `databricks auth profiles`) 
+- [ ] Verify that `bun` was installed and sourced correctly (run command: `which bun`) - If installed and not sourced, run these commands:
+```bash
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+```
 
 ### 2.2 Load Sample Data
 
@@ -96,9 +106,11 @@ Run these commands in order from the project root directory:
 ./watch.sh
 ```
 
-- Starts both backend (port 8000) and frontend development servers
-- Visit `http://localhost:8000` to verify the demo works locally
-- **Success criteria**: You should see the email generation interface and be able to generate emails
+- Starts both backend (port 8000) and frontend (port 3000) development servers
+- Visit [http://localhost:3000()](http://localhost:3000) to verify the demo works locally
+
+- **Success criteria**:
+- [ ] You should see the email generation interface and be able to generate emails
 
 ### ✅ Local Testing Checkpoint
 
@@ -117,28 +129,28 @@ Verify your local setup:
 
 ### 3.1 Configure App Permissions
 
-Your Databricks App needs specific permissions to access the the MLflow experiment and other resources in you created in the first steps.
+Your Databricks App needs specific permissions to access the the MLflow experiment and other resources that you have created in the first steps.
 
 #### Get Your App's Service Principal
 
 1. Go to your Databricks workspace → Compute → Apps
 2. Find your app and click on it
 3. Go to the **Authorization** tab
-4. **Copy the service principal name** (you'll need this for the next steps)
+4. Copy the **service principal name** (required for next steps)
 
 #### Grant Required Permissions
 
 **MLflow Experiment Access:**
 
 - [ ] Go to your MLflow experiment → Permissions tab
-- [ ] Grant **CAN MANAGE** (or higher) to your app's service principal
+- [ ] Grant **CAN MANAGE** (or higher) to your app's **service principal name**
 - [ ] This enables tracing and demo functionality
 
 **Unity Catalog Schema Access:**
 
 - [ ] Go to your Unity Catalog schema → Permissions tab
-- [ ] Grant **ALL PERMISSIONS** to your app's service principal
-- [ ] Grant **MANAGE** to your app's service principal
+- [ ] Grant **ALL PERMISSIONS** to your app's **service principal name**
+- [ ] Grant **MANAGE** to your app's **service principal name**
 - [ ] ⚠️ **Important**: You need BOTH permissions - ALL does not include MANAGE
 - [ ] This enables the prompt registry functionality
 

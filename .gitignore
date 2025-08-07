@@ -3,3 +3,6 @@
 __pycache__
 .idea/
 .env
+app.yaml
+client/build/index.html
+client/build/assets/index-*.js
