@@ -887,20 +887,26 @@ class AutoSetup:
             return True
         
         try:
-            app = self.resource_manager.create_databricks_app(
-                name=app_name,
-                description="MLflow demo application - automated setup"
-            )
-            
-            self.created_resources['app_name'] = app_name
-            
             # Generate workspace path for the app
             current_user = self.env_detector.get_current_user()
             if current_user:
                 workspace_path = f"/Workspace/Users/{current_user}/{app_name}"
                 self.config['LHA_SOURCE_CODE_PATH'] = workspace_path
             else:
-                print("⚠️  Could not determine workspace path - will need manual configuration")
+                # Fallback to shared workspace
+                workspace_path = f"/Workspace/Shared/{app_name}"
+                self.config['LHA_SOURCE_CODE_PATH'] = workspace_path
+                print("⚠️  Could not determine current user - using shared workspace path")
+            
+            print(f"📁 App source code path: {workspace_path}")
+            
+            app = self.resource_manager.create_databricks_app(
+                name=app_name,
+                description="MLflow demo application - automated setup",
+                source_code_path=workspace_path
+            )
+            
+            self.created_resources['app_name'] = app_name
             
             return True
         except Exception as e:
