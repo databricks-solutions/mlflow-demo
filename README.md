@@ -31,7 +31,7 @@ The automated setup handles resource creation, configuration, and deployment for
 # Clone the repository and run automation
 git clone https://github.com/databricks-solutions/mlflow-demo.git
 cd mlflow-demo
-./auto-setup
+./auto-setup.sh
 ```
 
 The automation will:
@@ -42,9 +42,9 @@ The automation will:
 - ✅ Deploy and validate the application
 
 **Automation Features:**
-- **Resume capability** - Continue from interruptions with `python auto-setup.py --resume`
-- **Dry run mode** - Preview changes with `python auto-setup.py --dry-run`
-- **Progress tracking** - See status with `python auto-setup.py --status`
+- **Resume capability** - Continue from interruptions with `python automation/auto-setup.py --resume`
+- **Dry run mode** - Preview changes with `python automation/auto-setup.py --dry-run`
+- **Progress tracking** - See status with `python automation/auto-setup.py --status`
 - **Intelligent defaults** - Minimal user input required
 
 ---
