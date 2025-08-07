@@ -24,30 +24,27 @@ The automated setup handles resource creation, configuration, and deployment for
 
 #### Prerequisites
 - [ ] **Databricks workspace access** - [Create one here](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=email_demo_github) if needed
-- [ ] **Databricks CLI installed and authenticated** - Run `databricks auth login`
+- [ ] **Install Python `>=3.10.16`**
 
 #### Run Automated Setup
-```bash
-# Clone the repository and run automation
-git clone https://github.com/databricks-solutions/mlflow-demo.git
-cd mlflow-demo
-./auto-setup.sh
-```
 
-The automation will:
-- ✅ Auto-detect workspace settings and suggest configurations
-- ✅ Create Databricks App, MLflow experiment, and Unity Catalog resources
-- ✅ Configure permissions automatically 
-- ✅ Install dependencies and load sample data
-- ✅ Deploy and validate the application
+The `./auto-setup.sh` script will run all the steps outlined in the [Manual Setup](#-option-b-manual-setup) workflow.
 
-**Automation Features:**
-- **Resume capability** - Continue from interruptions with `python automation/auto-setup.py --resume`
-- **Dry run mode** - Preview changes with `python automation/auto-setup.py --dry-run`
-- **Progress tracking** - See status with `python automation/auto-setup.py --status`
-- **Intelligent defaults** - Minimal user input required
 
----
+- [ ] **1. Install the Databricks CLI**
+  - Follow the [installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
+  - Verify installation: Run `databricks --version` to confirm it's installed
+- [ ] **2. Authenticate with your workspace**
+  - Run `databricks auth login` and follow the prompts
+- [ ] **3. Clone repo and run setup script**
+
+    ```bash
+    # Clone the repository and run automation
+    git clone https://github.com/databricks-solutions/mlflow-demo.git
+    cd mlflow-demo
+    ./auto-setup.sh
+    ```
+
 
 ### 🔧 Option B: Manual Setup
 
