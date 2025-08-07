@@ -29,7 +29,7 @@ The automated setup handles resource creation, configuration, and deployment for
 #### Run Automated Setup
 ```bash
 # Clone the repository and run automation
-git clone https://github.com/epec254/mlflow-demo.git
+git clone https://github.com/databricks-solutions/mlflow-demo.git
 cd mlflow-demo
 ./auto-setup
 ```
