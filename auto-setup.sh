@@ -36,6 +36,7 @@ fi
 # Check Python version (>= 3.10.16)
 echo "🔍 Checking Python version..."
 python_version=$(python3 --version 2>/dev/null | cut -d' ' -f2 || python --version 2>/dev/null | cut -d' ' -f2 || echo "0.0.0")
+echo "Found Python version: $python_version"
 required_python="3.10.16"
 
 # Function to compare versions
@@ -55,10 +56,19 @@ version_compare() {
         if [[ -z ${ver2[i]} ]]; then
             ver2[i]=0
         fi
-        if ((10#${ver1[i]} > 10#${ver2[i]})); then
+        # Remove leading zeros and compare as integers
+        local v1=${ver1[i]#0}
+        local v2=${ver2[i]#0}
+        # Handle empty strings after removing leading zeros
+        [[ -z "$v1" ]] && v1=0
+        [[ -z "$v2" ]] && v2=0
+        # Convert to integers
+        v1=$((v1))
+        v2=$((v2))
+        if [[ $v1 -gt $v2 ]]; then
             return 1
         fi
-        if ((10#${ver1[i]} < 10#${ver2[i]})); then
+        if [[ $v1 -lt $v2 ]]; then
             return 2
         fi
     done
@@ -67,6 +77,7 @@ version_compare() {
 
 version_compare "$python_version" "$required_python"
 result=$?
+echo "Version comparison result: $result (0=equal, 1=newer, 2=older)"
 
 if [[ $result -eq 2 ]]; then
     echo "❌ Python version $python_version is too old. Required: >= $required_python"
