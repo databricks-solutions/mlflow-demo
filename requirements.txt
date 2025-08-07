@@ -8,6 +8,8 @@ uvicorn>=0.34.0
 openai>=1.66.0
 httpx>=0.28.0
 pydantic>=2.10.0
+databricks-sdk>=0.36.0
+requests>=2.31.0
 tenacity==9.0.0
 pillow==11.1.0
 websockets==15.0
