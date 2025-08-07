@@ -115,12 +115,13 @@ class DatabricksResourceManager:
             print(f"❌ Failed to create MLflow experiment '{name}': {e}")
             raise
     
-    def create_databricks_app(self, name: str, description: str = None) -> App:
+    def create_databricks_app(self, name: str, description: str = None, source_code_path: str = None) -> App:
         """Create a Databricks App.
         
         Args:
             name: Name of the app
             description: Optional description
+            source_code_path: Workspace path for the app source code
             
         Returns:
             App object
@@ -128,34 +129,56 @@ class DatabricksResourceManager:
         try:
             print(f"📱 Creating Databricks App '{name}'...")
             
-            # Databricks Apps are typically deployed rather than created via API
-            # For the setup phase, we'll just register the app name and create it during deployment
-            # This is a placeholder step to track the intended app name
-            print(f"📱 Registering app name '{name}' for later deployment...")
-            
-            # Check if app already exists
+            # Check if app already exists first
             try:
                 existing_app = self.client.apps.get(name)
                 print(f"✅ App '{name}' already exists")
                 self.created_resources.append(('app', name))
                 return existing_app
             except NotFound:
-                # App doesn't exist yet, will be created during deployment
+                pass  # App doesn't exist, we'll create it
+            
+            # Create the Databricks App
+            try:
+                # Import the App class from the SDK
+                from databricks.sdk.service.apps import App
+                
+                app_source_path = source_code_path or f"/Workspace/Shared/{name}"
+                
+                # Create the App object with proper structure
+                app_config = App(
+                    name=name,
+                    description=description or f"MLflow demo application - {name}",
+                    default_source_code_path=app_source_path
+                )
+                
+                # Create the app using the correct SDK method signature
+                app_waiter = self.client.apps.create(
+                    app=app_config,
+                    no_compute=True  # Don't start the app immediately
+                )
+                
+                # Wait for the creation to complete
+                app = app_waiter.result()
+                
+                print(f"✅ Created Databricks App '{name}'")
+                self.created_resources.append(('app', name))
+                return app
+                
+            except Exception as create_error:
+                print(f"⚠️  Could not create app via SDK: {create_error}")
                 print(f"💡 App '{name}' will be created during deployment step")
                 self.created_resources.append(('app', name))
-                # Return a dummy app object for now
+                
+                # Return a dummy app object as fallback
                 class DummyApp:
                     def __init__(self, name):
                         self.name = name
                 return DummyApp(name)
-        except ResourceAlreadyExists:
-            # Get the existing app
-            apps = self.client.apps.list()
-            for app in apps:
-                if app.name == name:
-                    print(f"✅ Databricks App '{name}' already exists")
-                    return app
-            raise Exception(f"Failed to find or create app '{name}'")
+                
+        except Exception as e:
+            print(f"❌ Failed to create or check app '{name}': {e}")
+            raise
     
     def grant_schema_permissions(self, schema_full_name: str, principal: str, 
                                 permissions: List[str] = None) -> None:
