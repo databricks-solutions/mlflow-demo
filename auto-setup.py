@@ -302,11 +302,11 @@ class AutoSetup:
             if catalog_name != suggested_catalog:
                 print(f"   {start_idx + i}. {catalog_name} - {access_level}")
         
-        print(f"   {len(catalog_list) + (1 if suggested_catalog in available_catalogs else 0)}. Create new catalog")
+        max_choice = len(catalog_list) - 1 + (1 if suggested_catalog in available_catalogs else 0)
         
         while True:
             try:
-                choice = input(f"\nSelect catalog (0-{len(catalog_list) + (1 if suggested_catalog in available_catalogs else 0)}) or type catalog name: ").strip()
+                choice = input(f"\nSelect catalog (0-{max_choice}): ").strip()
                 
                 # Check if it's a number
                 try:
@@ -320,22 +320,11 @@ class AutoSetup:
                             return selected_catalogs[choice_num - 1]
                         else:
                             return catalog_list[choice_num - 1]
-                    elif choice_num == len(catalog_list) + (1 if suggested_catalog in available_catalogs else 0):
-                        # Create new catalog
-                        new_catalog = input("Enter new catalog name: ").strip()
-                        if new_catalog:
-                            print(f"💡 Will create new catalog: {new_catalog}")
-                            return new_catalog
                     else:
-                        print(f"❌ Please enter a number between 0 and {len(catalog_list) + (1 if suggested_catalog in available_catalogs else 0)}")
+                        print(f"❌ Please enter a number between 0 and {max_choice}")
                         continue
                 except ValueError:
-                    # User typed a catalog name directly
-                    if choice in available_catalogs:
-                        return choice
-                    else:
-                        print(f"💡 Will create new catalog: {choice}")
-                        return choice
+                    print("❌ Please enter a valid number")
                         
             except KeyboardInterrupt:
                 return None
@@ -405,6 +394,15 @@ class AutoSetup:
             except KeyboardInterrupt:
                 return None
     
+    def _validate_app_name(self, app_name: str) -> bool:
+        """Validate app name format for Databricks Apps."""
+        import re
+        if not app_name:
+            return False
+        # App name must contain only lowercase letters, numbers, and dashes
+        pattern = r'^[a-z0-9-]+$'
+        return bool(re.match(pattern, app_name))
+    
     def _prompt_for_app_name(self, suggested_app_name: str = None) -> str:
         """Interactive app name selection with permission checking."""
         print("\n📱 Databricks App Name Selection")
@@ -446,8 +444,14 @@ class AutoSetup:
                             return selected_app
                         elif choice_num == create_new_index:
                             # Create new app
-                            new_app = input("Enter new app name: ").strip()
-                            if new_app:
+                            while True:
+                                new_app = input("Enter new app name (lowercase letters, numbers, dashes only): ").strip()
+                                if not new_app:
+                                    print("❌ App name cannot be empty")
+                                    continue
+                                if not self._validate_app_name(new_app):
+                                    print("❌ App name must contain only lowercase letters, numbers, and dashes")
+                                    continue
                                 if new_app in manageable_apps:
                                     print(f"📱 Will update existing app: {new_app}")
                                     return new_app
@@ -459,6 +463,9 @@ class AutoSetup:
                             continue
                     except ValueError:
                         # User typed an app name directly
+                        if not self._validate_app_name(choice):
+                            print("❌ App name must contain only lowercase letters, numbers, and dashes")
+                            continue
                         if choice in manageable_apps:
                             print(f"📱 Will update existing app: {choice}")
                             return choice
@@ -472,15 +479,19 @@ class AutoSetup:
             # No manageable apps found, just prompt for new app name
             print("No manageable apps found in workspace.")
             while True:
-                if suggested_app_name:
+                if suggested_app_name and self._validate_app_name(suggested_app_name):
                     app_name = input(f"App name [{suggested_app_name}]: ").strip()
                     if not app_name:
                         app_name = suggested_app_name
                 else:
-                    app_name = input("App name: ").strip()
+                    app_name = input("App name (lowercase letters, numbers, dashes only): ").strip()
                     if not app_name:
                         print("❌ App name is required")
                         continue
+                
+                if not self._validate_app_name(app_name):
+                    print("❌ App name must contain only lowercase letters, numbers, and dashes")
+                    continue
                 
                 print(f"💡 Will create new app: {app_name}")
                 return app_name
@@ -908,17 +919,8 @@ class AutoSetup:
             
             self.created_resources['app_name'] = app_name
             
-            # Pause to allow user to start the app manually if desired
+            # Automatically start the app after creation
             print(f"\n📱 App '{app_name}' has been created successfully!")
-            print("You can now start the app manually from the Databricks UI if you prefer.")
-            print("Press Enter to automatically start the app, or Ctrl+C to skip automatic startup...")
-            try:
-                input()
-            except KeyboardInterrupt:
-                print("\n⏭️  Skipping automatic app startup")
-                return True
-            
-            # Start the app after creation
             print(f"🚀 Starting app '{app_name}'...")
             if not self.resource_manager.start_app(app_name, timeout_minutes=10):
                 print(f"⚠️  Failed to start app '{app_name}' - it may need to be started manually")
@@ -1335,14 +1337,29 @@ class AutoSetup:
     
     def _handle_auth_selection(self, profiles: Dict[str, Dict[str, Any]]) -> bool:
         """Handle profile selection and authentication."""
-        print("\n🔧 Available Databricks profiles:")
+        print("\n🔧 Databricks Profile Configuration")
+        print("⚠️  This script only works with the DEFAULT profile to ensure consistent URLs.")
         
         profile_list = list(profiles.keys())
         if not profile_list:
             print("❌ No profiles available. Please run 'databricks auth login' to create one.")
             return False
         
-        # Check if current auth is working
+        # Check if DEFAULT profile exists and is valid
+        if 'DEFAULT' not in profiles:
+            print("❌ DEFAULT profile not found.")
+            print("   Please create a DEFAULT profile by running:")
+            print("   databricks auth login --profile DEFAULT")
+            return False
+        
+        default_profile = profiles['DEFAULT']
+        if default_profile.get('valid') != 'YES':
+            print("❌ DEFAULT profile exists but is not valid.")
+            print("   Please re-authenticate your DEFAULT profile by running:")
+            print("   databricks auth login --profile DEFAULT")
+            return False
+        
+        # Check if current auth is working and using DEFAULT
         current_auth_works = False
         current_profile = None
         try:
@@ -1359,47 +1376,22 @@ class AutoSetup:
         except Exception:
             pass
         
-        # Show current authentication status
-        if current_auth_works:
-            profile_text = f" (profile: {current_profile})" if current_profile else ""
-            print(f"   0. Keep current authentication{profile_text} ✅")
+        print(f"\n🔧 Available option:")
+        default_host = default_profile.get('host', 'Unknown host')
         
-        # Show profiles with details
-        for i, profile_name in enumerate(profile_list, 1):
-            profile_info = profiles[profile_name]
-            host = profile_info.get('host', 'Unknown host')
-            valid = profile_info.get('valid', 'UNKNOWN')
-            status_icon = "✅" if valid == "YES" else "❌" if valid == "NO" else "❓"
-            current_marker = " (current)" if profile_name == current_profile else ""
-            print(f"   {i}. {profile_name} ({host}) {status_icon}{current_marker}")
-        
-        # Let user select profile
-        while True:
-            try:
-                max_choice = len(profile_list)
-                if current_auth_works:
-                    choice = input(f"\nSelect profile (0-{max_choice}) or 'q' to quit: ").strip()
-                else:
-                    choice = input(f"\nSelect profile (1-{max_choice}) or 'q' to quit: ").strip()
-                
-                if choice.lower() == 'q':
-                    return False
-                
-                choice_num = int(choice)
-                
-                if choice_num == 0 and current_auth_works:
-                    print("✅ Keeping current authentication")
-                    return True
-                elif 1 <= choice_num <= len(profile_list):
-                    selected_profile = profile_list[choice_num - 1]
-                    break
-                else:
-                    if current_auth_works:
-                        print(f"❌ Please enter a number between 0 and {len(profile_list)}")
-                    else:
-                        print(f"❌ Please enter a number between 1 and {len(profile_list)}")
-            except ValueError:
-                print("❌ Please enter a valid number or 'q'")
+        if current_auth_works and current_profile == 'DEFAULT':
+            print(f"   0. Keep current DEFAULT profile authentication ({default_host}) ✅")
+            choice = input(f"\nPress ENTER to continue with DEFAULT profile or 'q' to quit: ").strip()
+            if choice.lower() == 'q':
+                return False
+            print("✅ Using DEFAULT profile")
+            return True
+        else:
+            print(f"   1. Use DEFAULT profile ({default_host}) ✅")
+            choice = input(f"\nPress ENTER to use DEFAULT profile or 'q' to quit: ").strip()
+            if choice.lower() == 'q':
+                return False
+            selected_profile = 'DEFAULT'
         
         # Authenticate with selected profile
         print(f"\n🔐 Authenticating with profile '{selected_profile}'...")
