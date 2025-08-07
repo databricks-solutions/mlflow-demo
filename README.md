@@ -71,7 +71,7 @@ Before proceeding to Phase 2, verify you have:
 
 > ⚠️ **STOP**: Only proceed if you've completed ALL items in Phase 1 above.
 
-After cloning the rpository (`git clone https://github.com/databricks-solutions/mlflow-demo.git
+After cloning the repository (`git clone https://github.com/databricks-solutions/mlflow-demo.git
 cd mlflow-demo`), run these commands in order from the project root directory:
 
 ### 2.1 Configure Environment Variables
@@ -107,7 +107,7 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 ```
 
 - Starts both backend (port 8000) and frontend (port 3000) development servers
-- Visit [http://localhost:3000()](http://localhost:3000) to verify the demo works locally
+- Visit [http://localhost:3000](http://localhost:3000) to verify the demo works locally
 
 - **Success criteria**:
 - [ ] You should see the email generation interface and be able to generate emails
