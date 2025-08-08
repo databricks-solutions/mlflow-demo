@@ -13,16 +13,20 @@ mlruns
 
 # OS files
 .DS_Store
+__pycache__
+.idea/
+.env
+app.yaml
 
 # Frontend dependencies and build outputs
 client/node_modules/
 client/dist/
+client/build/
 package-lock.json
 client/package-lock.json
 
 # Generated API client
 client/src/fastapi_client/
-
 
 email_app/
 

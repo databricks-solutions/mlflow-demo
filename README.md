@@ -24,6 +24,7 @@ The automated setup handles resource creation, configuration, and deployment for
 
 #### Prerequisites
 - [ ] **Databricks workspace access** - [Create one here](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=email_demo_github) if needed
+- [ ] **Databricks CLI (version >= 0.263.0) installed and authenticated** - Run `databricks auth login`
 - [ ] **Install Python `>=3.10.16`**
 
 #### Run Automated Setup
