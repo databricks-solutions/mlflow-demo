@@ -21,8 +21,10 @@ import argparse
 import os
 import sys
 import subprocess
+import threading
+import time
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound, PermissionDenied
 
@@ -34,6 +36,42 @@ from resource_manager import DatabricksResourceManager
 from environment_detector import EnvironmentDetector
 from validation import SetupValidator
 from progress_tracker import ProgressTracker, StepStatus
+
+
+class Spinner:
+    """Simple spinner to show progress during long operations."""
+    
+    def __init__(self, message: str):
+        self.message = message
+        self.spinning = False
+        self.thread = None
+        self.spinner_chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    def start(self):
+        """Start the spinner."""
+        self.spinning = True
+        self.thread = threading.Thread(target=self._spin)
+        self.thread.start()
+    
+    def stop(self, success_message: str = None):
+        """Stop the spinner."""
+        self.spinning = False
+        if self.thread:
+            self.thread.join()
+        # Clear the line and show completion
+        print(f"\r{' ' * (len(self.message) + 10)}", end='')  # Clear line
+        if success_message:
+            print(f"\r✅ {success_message}")
+        else:
+            print(f"\r✅ {self.message}")
+    
+    def _spin(self):
+        """Internal spinner loop."""
+        i = 0
+        while self.spinning:
+            print(f"\r{self.spinner_chars[i % len(self.spinner_chars)]} {self.message}", end='', flush=True)
+            time.sleep(0.1)
+            i += 1
 
 
 class AutoSetup:
@@ -80,47 +118,85 @@ class AutoSetup:
             # For dry run, keep placeholder components
             return True
     
+    def _test_create_schema_permission(self, catalog_name: str) -> bool:
+        """Test if user can actually create schemas in this catalog."""
+        import os
+        from databricks.sdk.errors import PermissionDenied
+        
+        # Try to create a test schema with a unique name
+        test_schema_name = f"test_perms_{int(os.urandom(4).hex(), 16)}"
+        
+        try:
+            # Try to create the test schema
+            self.client.schemas.create(
+                name=test_schema_name,
+                catalog_name=catalog_name,
+                comment="Temporary test schema for permission verification"
+            )
+            
+            # If successful, clean up immediately
+            try:
+                self.client.schemas.delete(f"{catalog_name}.{test_schema_name}")
+            except Exception:
+                pass  # Cleanup failed but permission test succeeded
+                
+            return True
+            
+        except PermissionDenied:
+            return False
+        except Exception:
+            return False  # Any other error means we can't create schemas
+
     def _get_available_catalogs_with_permissions(self) -> Dict[str, str]:
-        """Get catalogs where user has required permissions."""
+        """Get catalogs where user has required permissions (USE CATALOG + CREATE SCHEMA)."""
         available_catalogs = {}
         try:
-            catalogs = list(self.client.catalogs.list())
-            for catalog in catalogs:
+            spinner = Spinner("Loading available catalogs...")
+            spinner.start()
+            try:
+                catalogs = list(self.client.catalogs.list())
+                spinner.stop("Found catalogs")
+            except Exception as e:
+                spinner.stop()
+                raise e
+            
+            # Limit to first 50 catalogs to avoid timeout issues
+            # Most users won't need to check thousands of catalogs
+            catalog_sample = catalogs[:50] if len(catalogs) > 50 else catalogs
+            print(f"✅ Found {len(catalogs)} catalogs, verifying CREATE SCHEMA permissions on first {len(catalog_sample)}")
+            print("🔍 This may take a moment as we test actual CREATE SCHEMA permissions...")
+            
+            verified_count = 0
+            for i, catalog in enumerate(catalog_sample):
                 catalog_name = catalog.name
                 
-                # Check permissions levels
-                can_list_schemas = False
-                can_create_schemas = False
+                # Show progress for long operations
+                if i % 10 == 0 and i > 0:
+                    print(f"   Verified {verified_count} usable catalogs after checking {i}/{len(catalog_sample)}...")
                 
                 try:
-                    # Try to list schemas to check read access
+                    # First check if we can list schemas (USE CATALOG permission)
                     schemas = list(self.client.schemas.list(catalog_name=catalog_name))
-                    can_list_schemas = True
                     
-                    # Test for CREATE SCHEMA permission by checking if we can see catalog details
-                    # This is an approximation - the real test would be attempting to create a test schema
-                    try:
-                        catalog_info = self.client.catalogs.get(catalog_name)
-                        # If we can read catalog details AND list schemas, likely have create permissions
-                        # This is still approximate but better than just listing
-                        can_create_schemas = True
-                    except Exception:
-                        pass
+                    # Then test CREATE SCHEMA permission by actually trying to create a schema
+                    if self._test_create_schema_permission(catalog_name):
+                        available_catalogs[catalog_name] = "VERIFIED: USE CATALOG + CREATE SCHEMA"
+                        verified_count += 1
+                        print(f"   ✅ {catalog_name} - CREATE SCHEMA verified")
+                        
+                        # Stop after finding a reasonable number to avoid excessive API calls
+                        if verified_count >= 10:
+                            print(f"   Found {verified_count} verified catalogs, stopping search to avoid timeouts")
+                            break
                     
                 except Exception:
-                    # Can't even list schemas
-                    pass
-                
-                # Set permission level based on what we can do
-                if can_create_schemas:
-                    available_catalogs[catalog_name] = "READ/USE + CREATE SCHEMA"
-                elif can_list_schemas:
-                    available_catalogs[catalog_name] = "READ/USE (CREATE SCHEMA unknown)"
-                else:
-                    available_catalogs[catalog_name] = "LIMITED access"
+                    # Can't access this catalog
+                    continue
+            
+            print(f"✅ Found {len(available_catalogs)} catalogs with verified CREATE SCHEMA permissions")
                     
         except Exception as e:
-            print(f"⚠️  Could not list catalogs: {e}")
+            print(f"⚠️  Could not verify catalog permissions: {e}")
         
         return available_catalogs
     
@@ -128,10 +204,28 @@ class AutoSetup:
         """Get schemas in a catalog where user has required permissions."""
         available_schemas = {}
         try:
-            schemas = list(self.client.schemas.list(catalog_name=catalog_name))
-            for schema in schemas:
+            spinner = Spinner(f"Loading schemas in catalog '{catalog_name}'...")
+            spinner.start()
+            try:
+                schemas = list(self.client.schemas.list(catalog_name=catalog_name))
+                spinner.stop(f"Found {len(schemas)} schemas in '{catalog_name}'")
+            except Exception as e:
+                spinner.stop()
+                raise e
+            
+            if not schemas:
+                print(f"   No schemas found in '{catalog_name}'")
+                return available_schemas
+            
+            print(f"🔍 Checking permissions on {len(schemas)} schemas...")
+            
+            for i, schema in enumerate(schemas):
                 schema_name = schema.name
                 full_schema_name = f"{catalog_name}.{schema_name}"
+                
+                # Show progress for long operations
+                if len(schemas) > 10 and i % 5 == 0 and i > 0:
+                    print(f"   Checked {i}/{len(schemas)} schemas...")
                 
                 # Check if user has required permissions: MANAGE and CREATE TABLE
                 has_manage = False
@@ -203,76 +297,107 @@ class AutoSetup:
                 except Exception:
                     # Can't access schema at all
                     continue
+            
+            print(f"✅ Found {len(available_schemas)} accessible schemas with permissions")
                     
         except Exception as e:
             print(f"⚠️  Could not list schemas in {catalog_name}: {e}")
         
         return available_schemas
     
-    def _get_manageable_apps(self) -> Dict[str, str]:
-        """Get existing Databricks apps where user has 'Can Manage' permission."""
-        manageable_apps = {}
+    def _check_app_management_permissions(self, app_name: str) -> Tuple[bool, str]:
+        """Check if user has verified management permissions on an app."""
         try:
-            apps = list(self.client.apps.list())
+            # Get current user info
             current_user = self.client.current_user.me()
             user_email = current_user.user_name if hasattr(current_user, 'user_name') else None
             
-            for app in apps:
+            # Get app details
+            try:
+                app_details = self.client.apps.get(app_name)
+            except PermissionDenied:
+                return False, "Cannot read app details"
+            except Exception as e:
+                return False, f"Error reading app: {e}"
+            
+            # Check 1: Is user the creator/owner?
+            if hasattr(app_details, 'created_by') and user_email:
+                created_by = getattr(app_details, 'created_by', '')
+                if created_by == user_email:
+                    return True, "Owner/Creator"
+            
+            # Check 2: Get explicit permissions
+            try:
+                permissions = self.client.apps.get_permissions(app_name)
+            except PermissionDenied:
+                return False, "Cannot read app permissions"
+            except Exception as e:
+                return False, f"Error reading permissions: {e}"
+            
+            # Check for explicit manage permissions
+            for perm in getattr(permissions, 'permissions', []):
+                principal = getattr(perm, 'principal', '')
+                permission_level = getattr(perm, 'permission_level', '')
+                
+                if user_email and user_email in principal:
+                    if permission_level in ['CAN_MANAGE', 'OWNER', 'IS_OWNER']:
+                        return True, f"Explicit {permission_level}"
+                    else:
+                        return False, f"Only has {permission_level} (not manage)"
+            
+            # No explicit management permissions found
+            return False, "No explicit manage permissions found"
+                
+        except Exception as e:
+            return False, f"Unexpected error: {e}"
+
+    def _get_manageable_apps(self) -> Dict[str, str]:
+        """Get existing Databricks apps where user has VERIFIED management permissions."""
+        manageable_apps = {}
+        try:
+            spinner = Spinner("Loading Databricks apps...")
+            spinner.start()
+            try:
+                apps = list(self.client.apps.list())
+                spinner.stop("Found apps")
+            except Exception as e:
+                spinner.stop()
+                raise e
+            
+            # Limit to first 20 apps to avoid timeout issues
+            # Most users won't need to check hundreds of apps
+            app_sample = apps[:20] if len(apps) > 20 else apps
+            print(f"✅ Found {len(apps)} apps, verifying management permissions on first {len(app_sample)}")
+            print("🔍 This checks for actual MANAGE permissions, not just read access...")
+            
+            verified_count = 0
+            for i, app in enumerate(app_sample):
                 if not hasattr(app, 'name'):
                     continue
                     
                 app_name = app.name
-                has_manage_permission = False
-                permission_reason = ""
                 
-                try:
-                    # Get app details to check permissions
-                    app_details = self.client.apps.get(app_name)
+                # Show progress for long operations
+                if i % 5 == 0 and i > 0:
+                    print(f"   Verified {verified_count} manageable apps after checking {i}/{len(app_sample)}...")
+                
+                # Check for actual management permissions
+                has_manage, reason = self._check_app_management_permissions(app_name)
+                
+                if has_manage:
+                    manageable_apps[app_name] = reason
+                    verified_count += 1
+                    print(f"   ✅ {app_name} - {reason}")
                     
-                    # Check if user is the creator/owner
-                    if hasattr(app_details, 'created_by') and user_email:
-                        created_by = getattr(app_details, 'created_by', '')
-                        if created_by == user_email:
-                            has_manage_permission = True
-                            permission_reason = "Owner/Creator"
-                    
-                    # Try to check app permissions/grants if not already determined
-                    if not has_manage_permission:
-                        try:
-                            # Check if we can get app permissions
-                            permissions = self.client.apps.get_permissions(app_name)
-                            
-                            # Look through permissions for current user
-                            for perm in getattr(permissions, 'permissions', []):
-                                principal = getattr(perm, 'principal', '')
-                                permission_level = getattr(perm, 'permission_level', '')
-                                
-                                if user_email and user_email in principal:
-                                    if permission_level in ['CAN_MANAGE', 'OWNER', 'IS_OWNER']:
-                                        has_manage_permission = True
-                                        permission_reason = f"Explicit {permission_level}"
-                                        break
-                            
-                        except Exception:
-                            pass
-                    
-                    # If we still can't determine permissions, try a fallback approach
-                    if not has_manage_permission and app_details:
-                        # If we can read app details successfully, assume we have some level of access
-                        # This is more permissive but practical
-                        has_manage_permission = True
-                        permission_reason = "Can read details"
-                    
-                    # Include apps we can manage
-                    if has_manage_permission:
-                        manageable_apps[app_name] = permission_reason
-                    
-                except Exception:
-                    # Can't access this app
-                    continue
+                    # Stop after finding a reasonable number to avoid excessive API calls
+                    if verified_count >= 10:
+                        print(f"   Found {verified_count} verified apps, stopping search to avoid timeouts")
+                        break
+            
+            print(f"✅ Found {len(manageable_apps)} apps with verified management permissions")
                     
         except Exception as e:
-            print(f"⚠️  Could not list apps: {e}")
+            print(f"⚠️  Could not verify app permissions: {e}")
         
         return manageable_apps
     
@@ -284,10 +409,45 @@ class AutoSetup:
         available_catalogs = self._get_available_catalogs_with_permissions()
         
         if not available_catalogs:
-            print("❌ No accessible catalogs found. You may need Unity Catalog permissions.")
-            return None
+            print("❌ No catalogs found with verified CREATE SCHEMA permissions in the sample checked.")
+            print("")
+            print("💡 This means you need CREATE SCHEMA permission on a catalog. Options:")
+            print("   1. Ask your workspace admin to grant CREATE SCHEMA permission")
+            print("   2. Use a catalog where you already have permissions")
+            print("   3. Create your own catalog (if you have CREATE CATALOG permission)")
+            print("")
+            
+            # Allow manual entry as fallback
+            while True:
+                try:
+                    manual_catalog = input("Enter catalog name manually (or press Enter to skip): ").strip()
+                    if not manual_catalog:
+                        return None
+                    
+                    # Test the manually entered catalog with CREATE SCHEMA verification
+                    print(f"🔍 Verifying CREATE SCHEMA permission on '{manual_catalog}'...")
+                    try:
+                        # First check if we can list schemas (USE CATALOG)
+                        schemas = list(self.client.schemas.list(catalog_name=manual_catalog))
+                        print(f"✅ Can list schemas in '{manual_catalog}' - USE CATALOG confirmed")
+                        
+                        # Then test CREATE SCHEMA permission
+                        if self._test_create_schema_permission(manual_catalog):
+                            print(f"✅ CREATE SCHEMA permission verified on '{manual_catalog}'")
+                            return manual_catalog
+                        else:
+                            print(f"❌ No CREATE SCHEMA permission on '{manual_catalog}'")
+                            print("   You need CREATE SCHEMA permission to use this catalog")
+                            continue
+                            
+                    except Exception as e:
+                        print(f"❌ Cannot access catalog '{manual_catalog}': {e}")
+                        continue
+                        
+                except KeyboardInterrupt:
+                    return None
         
-        print("Available catalogs:")
+        print(f"Available catalogs (showing {len(available_catalogs)} with VERIFIED CREATE SCHEMA permissions):")
         catalog_list = list(available_catalogs.keys())
         
         # Show suggested catalog first if it exists
@@ -302,11 +462,15 @@ class AutoSetup:
             if catalog_name != suggested_catalog:
                 print(f"   {start_idx + i}. {catalog_name} - {access_level}")
         
-        max_choice = len(catalog_list) - 1 + (1 if suggested_catalog in available_catalogs else 0)
+        # Add option to manually enter catalog name
+        manual_entry_idx = len(catalog_list) + (1 if suggested_catalog in available_catalogs else 0)
+        print(f"   {manual_entry_idx}. Enter catalog name manually")
+        
+        max_choice = manual_entry_idx
         
         while True:
             try:
-                choice = input(f"\nSelect catalog (0-{max_choice}): ").strip()
+                choice = input(f"\nSelect catalog (0-{max_choice}) or type catalog name: ").strip()
                 
                 # Check if it's a number
                 try:
@@ -320,11 +484,36 @@ class AutoSetup:
                             return selected_catalogs[choice_num - 1]
                         else:
                             return catalog_list[choice_num - 1]
+                    elif choice_num == manual_entry_idx:
+                        # Manual entry option
+                        while True:
+                            manual_catalog = input("Enter catalog name: ").strip()
+                            if not manual_catalog:
+                                print("❌ Catalog name cannot be empty")
+                                continue
+                            try:
+                                schemas = list(self.client.schemas.list(catalog_name=manual_catalog))
+                                print(f"✅ Catalog '{manual_catalog}' is accessible")
+                                return manual_catalog
+                            except Exception as e:
+                                print(f"❌ Cannot access catalog '{manual_catalog}': {e}")
+                                continue
                     else:
                         print(f"❌ Please enter a number between 0 and {max_choice}")
                         continue
                 except ValueError:
-                    print("❌ Please enter a valid number")
+                    # User typed a catalog name directly
+                    if choice in available_catalogs:
+                        return choice
+                    else:
+                        # Test the typed catalog name
+                        try:
+                            schemas = list(self.client.schemas.list(catalog_name=choice))
+                            print(f"✅ Catalog '{choice}' is accessible")
+                            return choice
+                        except Exception as e:
+                            print(f"❌ Cannot access catalog '{choice}': {e}")
+                            continue
                         
             except KeyboardInterrupt:
                 return None
@@ -409,7 +598,14 @@ class AutoSetup:
             # Use the model discovery logic to find chat models
             from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
             
-            endpoints = self.client.serving_endpoints.list()
+            spinner = Spinner("Discovering available chat models...")
+            spinner.start()
+            try:
+                endpoints = self.client.serving_endpoints.list()
+                spinner.stop("Found serving endpoints")
+            except Exception as e:
+                spinner.stop()
+                raise e
             
             # Common chat model patterns
             chat_model_patterns = [
@@ -542,7 +738,7 @@ class AutoSetup:
         manageable_apps = self._get_manageable_apps()
         
         if manageable_apps:
-            print("Apps you can manage:")
+            print(f"Apps you can manage (showing {len(manageable_apps)} with VERIFIED management permissions):")
             
             # Create a simple ordered list of all apps
             display_list = []
@@ -609,7 +805,11 @@ class AutoSetup:
                     return None
         else:
             # No manageable apps found, just prompt for new app name
-            print("No manageable apps found in workspace.")
+            print("No apps found with verified management permissions in the sample checked.")
+            print("💡 This means you need MANAGE permission on apps. Recommended:")
+            print("   1. Create a new app (you'll automatically be the owner)")
+            print("   2. Ask for MANAGE permissions on existing apps")
+            print("   3. Use apps you created yourself")
             while True:
                 if suggested_app_name and self._validate_app_name(suggested_app_name):
                     app_name = input(f"App name [{suggested_app_name}]: ").strip()
@@ -1451,12 +1651,19 @@ class AutoSetup:
     def _get_databricks_profiles(self) -> Dict[str, Dict[str, Any]]:
         """Get available Databricks authentication profiles."""
         try:
-            result = subprocess.run(
-                ['databricks', 'auth', 'profiles'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            spinner = Spinner("Loading Databricks authentication profiles...")
+            spinner.start()
+            try:
+                result = subprocess.run(
+                    ['databricks', 'auth', 'profiles'],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                spinner.stop("Loaded auth profiles")
+            except Exception as e:
+                spinner.stop()
+                raise e
             
             if result.returncode != 0:
                 print(f"❌ Failed to get profiles: {result.stderr}")
