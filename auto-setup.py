@@ -21,6 +21,8 @@ import argparse
 import os
 import sys
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from databricks.sdk import WorkspaceClient
@@ -34,6 +36,42 @@ from resource_manager import DatabricksResourceManager
 from environment_detector import EnvironmentDetector
 from validation import SetupValidator
 from progress_tracker import ProgressTracker, StepStatus
+
+
+class Spinner:
+    """Simple spinner to show progress during long operations."""
+    
+    def __init__(self, message: str):
+        self.message = message
+        self.spinning = False
+        self.thread = None
+        self.spinner_chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    def start(self):
+        """Start the spinner."""
+        self.spinning = True
+        self.thread = threading.Thread(target=self._spin)
+        self.thread.start()
+    
+    def stop(self, success_message: str = None):
+        """Stop the spinner."""
+        self.spinning = False
+        if self.thread:
+            self.thread.join()
+        # Clear the line and show completion
+        print(f"\r{' ' * (len(self.message) + 10)}", end='')  # Clear line
+        if success_message:
+            print(f"\r✅ {success_message}")
+        else:
+            print(f"\r✅ {self.message}")
+    
+    def _spin(self):
+        """Internal spinner loop."""
+        i = 0
+        while self.spinning:
+            print(f"\r{self.spinner_chars[i % len(self.spinner_chars)]} {self.message}", end='', flush=True)
+            time.sleep(0.1)
+            i += 1
 
 
 class AutoSetup:
@@ -84,7 +122,14 @@ class AutoSetup:
         """Get catalogs where user has required permissions."""
         available_catalogs = {}
         try:
-            catalogs = list(self.client.catalogs.list())
+            spinner = Spinner("Loading available catalogs...")
+            spinner.start()
+            try:
+                catalogs = list(self.client.catalogs.list())
+                spinner.stop("Found catalogs")
+            except Exception as e:
+                spinner.stop()
+                raise e
             for catalog in catalogs:
                 catalog_name = catalog.name
                 
@@ -128,7 +173,14 @@ class AutoSetup:
         """Get schemas in a catalog where user has required permissions."""
         available_schemas = {}
         try:
-            schemas = list(self.client.schemas.list(catalog_name=catalog_name))
+            spinner = Spinner(f"Loading schemas in catalog '{catalog_name}'...")
+            spinner.start()
+            try:
+                schemas = list(self.client.schemas.list(catalog_name=catalog_name))
+                spinner.stop(f"Found schemas in '{catalog_name}'")
+            except Exception as e:
+                spinner.stop()
+                raise e
             for schema in schemas:
                 schema_name = schema.name
                 full_schema_name = f"{catalog_name}.{schema_name}"
@@ -213,7 +265,14 @@ class AutoSetup:
         """Get existing Databricks apps where user has 'Can Manage' permission."""
         manageable_apps = {}
         try:
-            apps = list(self.client.apps.list())
+            spinner = Spinner("Loading Databricks apps...")
+            spinner.start()
+            try:
+                apps = list(self.client.apps.list())
+                spinner.stop("Found apps")
+            except Exception as e:
+                spinner.stop()
+                raise e
             current_user = self.client.current_user.me()
             user_email = current_user.user_name if hasattr(current_user, 'user_name') else None
             
@@ -409,7 +468,14 @@ class AutoSetup:
             # Use the model discovery logic to find chat models
             from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
             
-            endpoints = self.client.serving_endpoints.list()
+            spinner = Spinner("Discovering available chat models...")
+            spinner.start()
+            try:
+                endpoints = self.client.serving_endpoints.list()
+                spinner.stop("Found serving endpoints")
+            except Exception as e:
+                spinner.stop()
+                raise e
             
             # Common chat model patterns
             chat_model_patterns = [
@@ -1451,12 +1517,19 @@ class AutoSetup:
     def _get_databricks_profiles(self) -> Dict[str, Dict[str, Any]]:
         """Get available Databricks authentication profiles."""
         try:
-            result = subprocess.run(
-                ['databricks', 'auth', 'profiles'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            spinner = Spinner("Loading Databricks authentication profiles...")
+            spinner.start()
+            try:
+                result = subprocess.run(
+                    ['databricks', 'auth', 'profiles'],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                spinner.stop("Loaded auth profiles")
+            except Exception as e:
+                spinner.stop()
+                raise e
             
             if result.returncode != 0:
                 print(f"❌ Failed to get profiles: {result.stderr}")
