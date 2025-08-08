@@ -34,12 +34,7 @@ We know how to deliver reliable software, but GenAI's non-deterministic nature m
 
 MLflow enables you to apply software development best practices to evaluate and monitor GenAI application quality:
 
-|Software|MLflow's solution for GenAI|
-|-------|------|
-|Write code & debug locally| - [possible without MLflow] Prompt engineer & vibe check |
-|Unit tests & QA testing| - MLflow LLM judges to replicate human expertise to automatically assess output quality <br/> - MLflow Evaluation Datasets to use actual user inputs as test cases|
-|Track versions using Git| - MLflow App Versioning to link Git commits to your quality evaluation and monitoring <br/> - MLflow Prompt Registry to enable prompt changes without re-deploying|
-|Production telemetry|- MLflow Tracing to observe your GenAI app with monitoring to run evals <br/> - Monitoring to your LLM judges to assess quality in production <br/> - MLflow App Versioning to link Git commits to your GenAI app|
+![MLflow SLDC](https://i.imgur.com/T0uM1No.gif)
 
 ## What you will see
 
