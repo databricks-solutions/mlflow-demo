@@ -198,35 +198,6 @@ if not IS_DEV:
     raise RuntimeError(f'Build directory {build_path} not found. Run `bun run build` in client/')
 
 
-if IS_DEV:
-
-  @app.api_route('/{full_path:path}', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'])
-  async def proxy_to_dev_server(request: Request, full_path: str):
-    """Proxy all non-API requests to the Vite dev server."""
-    dev_server_url = f'http://localhost:3000/{full_path}'
-
-    async with httpx.AsyncClient() as client:
-      try:
-        # Forward request to Vite dev server
-        response = await client.request(
-          method=request.method,
-          url=dev_server_url,
-          headers=request.headers.raw,
-          content=await request.body(),
-        )
-
-        # Return the actual response from Vite dev server
-        return Response(
-          content=response.content,
-          status_code=response.status_code,
-          headers=dict(response.headers),
-        )
-      except httpx.RequestError:
-        return Response(
-          content='Vite dev server not running.',
-          status_code=502,
-        )
-
 
 if __name__ == '__main__':
   uvicorn.run(app, host=HOST, port=PORT)

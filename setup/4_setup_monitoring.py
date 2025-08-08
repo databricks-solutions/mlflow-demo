@@ -18,6 +18,10 @@ from mlflow.genai.scorers import get_scorer, delete_scorer
 
 # UNCOMMENT THIS
 
+import logging
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.ERROR)
+
 
 # These packages are automatically installed with mlflow[databricks]
 from databricks.agents.monitoring import (
