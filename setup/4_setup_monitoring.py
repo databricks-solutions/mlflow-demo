@@ -11,9 +11,10 @@ import dotenv
 dotenv.load_dotenv(project_root / '.env.local')
 
 # allow databricks-cli auth to take over
+import os
 os.environ.pop('DATABRICKS_HOST', None)
 
-import os
+
 
 from mlflow_demo.evaluation.evaluator import SCORERS
 from mlflow.genai.scorers import ScorerSamplingConfig
