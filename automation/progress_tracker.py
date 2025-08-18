@@ -135,16 +135,16 @@ class ProgressTracker:
         'dependencies': ['load_sample_data'],
       },
       {
-        'id': 'deploy_app',
-        'name': 'Deploy Application',
-        'description': 'Build and deploy app to Databricks',
-        'dependencies': ['validate_local_setup'],
-      },
-      {
         'id': 'setup_permissions',
         'name': 'Setup Permissions',
         'description': 'Configure permissions for app service principal',
-        'dependencies': ['deploy_app'],
+        'dependencies': ['create_app'],
+      },
+      {
+        'id': 'deploy_app',
+        'name': 'Deploy Application',
+        'description': 'Build and deploy app to Databricks',
+        'dependencies': ['validate_local_setup', 'setup_permissions'],
       },
       {
         'id': 'validate_deployment',
