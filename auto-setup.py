@@ -1272,18 +1272,16 @@ class AutoSetup:
         except Exception:
             user_path = f"/Workspace/Users/[user]/{app_name}"
         print(f"   • Will sync notebooks to workspace at {user_path}")
-        print(f"   • No Databricks App will be created")
     
     # LLM model
     llm_model = self.config.get('LLM_MODEL', 'Unknown')
     print(f"🤖 LLM Model: {llm_model}")
-    print(f"   • Will configure permissions for model serving endpoint")
     
     # Sample data
     print(f"\n📊 Sample Data Setup:")
     print(f"   • Load prompt templates into MLflow")
-    print(f"   • Generate sample traces and evaluations")
-    print(f"   • Configure monitoring and labeling workflows")
+    print(f"   • Generate sample traces, evaluations, and labeling sessions")
+    print(f"   • Configure production monitoring")
     
     # Permissions (only for full deployment mode)
     if deployment_mode == 'full_deployment':
