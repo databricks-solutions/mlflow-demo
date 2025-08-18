@@ -1259,9 +1259,7 @@ class AutoSetup:
           print(f"✅ Created catalog '{catalog}'")
         except PermissionDenied:
           print(f"❌ Permission denied: Cannot create catalog '{catalog}'")
-          print(
-            '   Please ask your workspace admin to create the catalog or grant you permissions'
-          )
+          print('   Please ask your workspace admin to create the catalog or grant you permissions')
           return False
         except Exception as e:
           print(f"❌ Failed to create catalog '{catalog}': {e}")
