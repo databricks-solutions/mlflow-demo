@@ -56,7 +56,13 @@ show_spinner() {
         printf "\r%s %s" "$message" "${spin:$i:1}"
         sleep 0.1
     done
-    printf "\r%s ✅\n" "$message"
+    wait $pid
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
+        printf "\r%s ✅\n" "$message"
+    else
+        printf "\r%s ❌\n" "$message"
+    fi
 }
 
 # Track what needs to be installed
