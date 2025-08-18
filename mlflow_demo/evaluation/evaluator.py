@@ -41,7 +41,6 @@ def accuracy(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
-  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -75,7 +74,6 @@ def personalized(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
-  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -112,7 +110,6 @@ def relevance(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
-  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -151,7 +148,6 @@ def email_is_grounded(trace):
   This demonstrates how to wrap the proven is_grounded judge with custom data extraction.
   """
   import json
-  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
