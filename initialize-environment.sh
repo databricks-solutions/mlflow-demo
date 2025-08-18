@@ -30,13 +30,6 @@ echo "  🐍 Python environment via uv"
 echo "  📱 TypeScript environment via bun"
 echo ""
 
-read -p "Would you like to proceed with initializing these environments? (Y/n): " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Nn]$ ]]; then
-    echo "❌ Environment initialization cancelled. Development environments are required to run the demo."
-    exit 1
-fi
-
 echo ""
 echo "🚀 Initializing environments..."
 echo ""
