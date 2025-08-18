@@ -6,16 +6,14 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import httpx
 import mlflow
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import Response, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from mlflow_demo.utils.mlflow_helpers import get_mlflow_experiment_id
 from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
-from starlette.requests import Request
 
 from .routes import email, helper
 
@@ -179,24 +177,23 @@ if not IS_DEV:
   if build_path.exists():
     # Mount static assets first (these should not fallback to index.html)
     app.mount('/assets', StaticFiles(directory=build_path / 'assets'), name='assets')
-    
+
     # Add catch-all route for SPA routing (must come after API routes)
     @app.get('/{full_path:path}')
     async def spa_fallback(full_path: str):
       """Serve index.html for all non-API routes to support SPA routing."""
       # Don't interfere with API routes
       if full_path.startswith('api/'):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
-      
+        raise HTTPException(status_code=404, detail='API endpoint not found')
+
       index_file = build_path / 'index.html'
       if index_file.exists():
         return FileResponse(index_file)
       else:
-        raise HTTPException(status_code=404, detail="Application not built")
-        
+        raise HTTPException(status_code=404, detail='Application not built')
+
   else:
     raise RuntimeError(f'Build directory {build_path} not found. Run `bun run build` in client/')
-
 
 
 if __name__ == '__main__':
