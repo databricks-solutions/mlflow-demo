@@ -58,14 +58,20 @@ Before proceeding to Phase 2, verify you have:
 
 Run these commands in order from the project root directory:
 
-### 2.1 Configure Environment Variables
+### 2.1 Setup Environment & Configure Environment Variables
 
 ```bash
 ./setup.sh
 ```
 
-- This script will prompt you for all the information from Phase 1
+**What this script does:**
+1. **Checks prerequisites** - Validates Python ≥3.10.16, uv, Databricks CLI ≥0.262.0, and bun
+2. **Installs missing tools** - Automatically installs uv and bun if not present (asks for confirmation first)
+3. **Configures environment** - Prompts you for all the information from Phase 1
+4. **Installs dependencies** - Sets up Python packages with uv and frontend packages with bun
+
 - Have your app name, workspace directory, experiment ID, and schema name ready
+- The script will show you what's missing and ask before installing anything
 
 ### 2.2 Load Sample Data
 
