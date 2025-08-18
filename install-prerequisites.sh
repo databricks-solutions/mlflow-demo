@@ -149,7 +149,28 @@ if [ ${#will_install[@]} -gt 0 ]; then
     done
     echo ""
     
-    read -p "Would you like to install these prerequisites now? (Y/n): " -n 1 -r
+    # Check if there are any manual installation requirements
+    manual_install_needed=false
+    for prereq in "${missing_prereqs[@]}"; do
+        if [[ "$prereq" == *"Python"* ]] || [[ "$prereq" == *"Databricks CLI"* ]]; then
+            manual_install_needed=true
+            break
+        fi
+    done
+    
+    if [ "$manual_install_needed" = true ]; then
+        echo "📋 The following must be installed manually:"
+        for prereq in "${missing_prereqs[@]}"; do
+            if [[ "$prereq" == *"Python"* ]]; then
+                echo "  • Install Python $required_python or newer from https://python.org"
+            elif [[ "$prereq" == *"Databricks CLI"* ]]; then
+                echo "  • Install/update Databricks CLI from https://docs.databricks.com/aws/en/dev-tools/cli/install"
+            fi
+        done
+        echo ""
+    fi
+    
+    read -p "Would you like to install the automatic prerequisites now? (Y/n): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Nn]$ ]]; then
         echo "❌ Cannot proceed without installing prerequisites."
@@ -187,6 +208,13 @@ if [[ " ${will_install[@]} " =~ " uv " ]]; then
     show_spinner $spinner_pid "📥 Installing uv package manager"
     wait $spinner_pid
     
+    # Check if uv installation was successful
+    if [ $? -ne 0 ]; then
+        echo "❌ uv installation failed. Please install uv manually and run this script again."
+        echo "   Manual installation: curl -LsSf https://astral.sh/uv/install.sh | sh"
+        exit 1
+    fi
+    
     # Source the shell to get uv in PATH
     export PATH="$HOME/.local/bin:$PATH"
     if ! command -v uv >/dev/null 2>&1; then
@@ -203,6 +231,13 @@ if [[ " ${will_install[@]} " =~ " bun " ]]; then
     spinner_pid=$!
     show_spinner $spinner_pid "📥 Installing bun JavaScript runtime"
     wait $spinner_pid
+    
+    # Check if bun installation was successful
+    if [ $? -ne 0 ]; then
+        echo "❌ bun installation failed. Please install bun manually and run this script again."
+        echo "   Manual installation: curl -fsSL https://bun.sh/install | bash"
+        exit 1
+    fi
     
     # Source the shell to get bun in PATH
     export BUN_INSTALL="$HOME/.bun"
