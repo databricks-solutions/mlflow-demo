@@ -316,105 +316,6 @@ class AutoSetup:
 
     return available_schemas
 
-  def _check_app_management_permissions(self, app_name: str) -> Tuple[bool, str]:
-    """Check if user has verified management permissions on an app."""
-    try:
-      # Get current user info
-      current_user = self.client.current_user.me()
-      user_email = current_user.user_name if hasattr(current_user, 'user_name') else None
-
-      # Get app details
-      try:
-        app_details = self.client.apps.get(app_name)
-      except PermissionDenied:
-        return False, 'Cannot read app details'
-      except Exception as e:
-        return False, f'Error reading app: {e}'
-
-      # Check 1: Is user the creator/owner?
-      if hasattr(app_details, 'created_by') and user_email:
-        created_by = getattr(app_details, 'created_by', '')
-        if created_by == user_email:
-          return True, 'Owner/Creator'
-
-      # Check 2: Get explicit permissions
-      try:
-        permissions = self.client.apps.get_permissions(app_name)
-      except PermissionDenied:
-        return False, 'Cannot read app permissions'
-      except Exception as e:
-        return False, f'Error reading permissions: {e}'
-
-      # Check for explicit manage permissions
-      for perm in getattr(permissions, 'permissions', []):
-        principal = getattr(perm, 'principal', '')
-        permission_level = getattr(perm, 'permission_level', '')
-
-        if user_email and user_email in principal:
-          if permission_level in ['CAN_MANAGE', 'OWNER', 'IS_OWNER']:
-            return True, f'Explicit {permission_level}'
-          else:
-            return False, f'Only has {permission_level} (not manage)'
-
-      # No explicit management permissions found
-      return False, 'No explicit manage permissions found'
-
-    except Exception as e:
-      return False, f'Unexpected error: {e}'
-
-  def _get_manageable_apps(self) -> Dict[str, str]:
-    """Get existing Databricks apps where user has VERIFIED management permissions."""
-    manageable_apps = {}
-    try:
-      spinner = Spinner('Loading Databricks apps...')
-      spinner.start()
-      try:
-        apps = list(self.client.apps.list())
-        spinner.stop('Found apps')
-      except Exception as e:
-        spinner.stop()
-        raise e
-
-      # Limit to first 20 apps to avoid timeout issues
-      # Most users won't need to check hundreds of apps
-      app_sample = apps[:20] if len(apps) > 20 else apps
-      print(
-        f'✅ Found {len(apps)} apps, verifying management permissions on first {len(app_sample)}'
-      )
-      print('🔍 This checks for actual MANAGE permissions, not just read access...')
-
-      verified_count = 0
-      for i, app in enumerate(app_sample):
-        if not hasattr(app, 'name'):
-          continue
-
-        app_name = app.name
-
-        # Show progress for long operations
-        if i % 5 == 0 and i > 0:
-          print(
-            f'   Verified {verified_count} manageable apps after checking {i}/{len(app_sample)}...'
-          )
-
-        # Check for actual management permissions
-        has_manage, reason = self._check_app_management_permissions(app_name)
-
-        if has_manage:
-          manageable_apps[app_name] = reason
-          verified_count += 1
-          print(f'   ✅ {app_name} - {reason}')
-
-          # Stop after finding a reasonable number to avoid excessive API calls
-          if verified_count >= 10:
-            print(f'   Found {verified_count} verified apps, stopping search to avoid timeouts')
-            break
-
-      print(f'✅ Found {len(manageable_apps)} apps with verified management permissions')
-
-    except Exception as e:
-      print(f'⚠️  Could not verify app permissions: {e}')
-
-    return manageable_apps
 
   def _prompt_for_catalog_selection(self, suggested_catalog: str = None) -> str:
     """Interactive catalog selection with permission checking."""
@@ -814,105 +715,32 @@ class AutoSetup:
         return suggested_model or available_models[0]
 
 
+  def _generate_default_app_name(self) -> str:
+    """Generate a default app name with 4 random characters."""
+    import os
+    # Generate 4 random hex characters
+    random_chars = os.urandom(2).hex()  # 2 bytes = 4 hex chars
+    return f'mlflow-demo-app-{random_chars}'
+
   def _prompt_for_app_name(self, suggested_app_name: str = None) -> str:
-    """Interactive app name selection with permission checking."""
+    """Interactive app name selection with default suggestion."""
     print('\n📱 Databricks App Name Selection')
 
-    manageable_apps = self._get_manageable_apps()
+    # Generate a default name if no suggestion provided
+    if not suggested_app_name:
+      suggested_app_name = self._generate_default_app_name()
 
-    if manageable_apps:
-      print(
-        f'Apps you can manage (showing {len(manageable_apps)} with VERIFIED '
-        f'management permissions):'
-      )
+    while True:
+      app_name = input(f'App name [{suggested_app_name}]: ').strip()
+      if not app_name:
+        app_name = suggested_app_name
 
-      # Create a simple ordered list of all apps
-      display_list = []
+      if not self._validate_app_name(app_name):
+        print('❌ App name must contain only lowercase letters, numbers, and dashes')
+        continue
 
-      # Add suggested app first if it exists and is manageable
-      if suggested_app_name and suggested_app_name in manageable_apps:
-        display_list.append(
-          (suggested_app_name, f'{manageable_apps[suggested_app_name]} (suggested)')
-        )
-
-      # Add all other apps
-      for app_name, permission in manageable_apps.items():
-        if app_name != suggested_app_name:
-          display_list.append((app_name, permission))
-
-      # Display the list
-      for i, (app_name, permission) in enumerate(display_list):
-        print(f'   {i}. {app_name} - {permission}')
-
-      create_new_index = len(display_list)
-      print(f'   {create_new_index}. Create new app')
-
-      while True:
-        try:
-          choice = input(f'\nSelect app (0-{create_new_index}) or type app name: ').strip()
-
-          # Check if it's a number
-          try:
-            choice_num = int(choice)
-            if 0 <= choice_num < len(display_list):
-              selected_app = display_list[choice_num][0]
-              print(f'📱 Will update existing app: {selected_app}')
-              return selected_app
-            elif choice_num == create_new_index:
-              # Create new app
-              while True:
-                new_app = input(
-                  'Enter new app name (lowercase letters, numbers, dashes only): '
-                ).strip()
-                if not new_app:
-                  print('❌ App name cannot be empty')
-                  continue
-                if not self._validate_app_name(new_app):
-                  print('❌ App name must contain only lowercase letters, numbers, and dashes')
-                  continue
-                if new_app in manageable_apps:
-                  print(f'📱 Will update existing app: {new_app}')
-                  return new_app
-                else:
-                  print(f'💡 Will create new app: {new_app}')
-                  return new_app
-            else:
-              print(f'❌ Please enter a number between 0 and {create_new_index}')
-              continue
-          except ValueError:
-            # User typed an app name directly
-            if not self._validate_app_name(choice):
-              print('❌ App name must contain only lowercase letters, numbers, and dashes')
-              continue
-            if choice in manageable_apps:
-              print(f'📱 Will update existing app: {choice}')
-              return choice
-            else:
-              print(f'💡 Will create new app: {choice}')
-              return choice
-
-        except KeyboardInterrupt:
-          return None
-    else:
-      # No manageable apps found, just prompt for new app name
-      print('No apps found with verified management permissions in the sample checked.')
-      print('💡 This means you need MANAGE permission on apps. Recommended:')
-      print("   1. Create a new app (you'll automatically be the owner)")
-      print('   2. Ask for MANAGE permissions on existing apps')
-      print('   3. Use apps you created yourself')
-      while True:
-        # Always provide a default suggestion
-        default_name = suggested_app_name if suggested_app_name and self._validate_app_name(suggested_app_name) else 'mlflow-demo-app'
-        app_name = input(f'App name [{default_name}]: ').strip()
-        if not app_name:
-          app_name = default_name
-
-        if not self._validate_app_name(app_name):
-          print('❌ App name must contain only lowercase letters, numbers, and dashes')
-          continue
-
-        print(f'💡 Will create new app: {app_name}')
-        return app_name
+      print(f'💡 Will create app: {app_name}')
+      return app_name
 
   def _restore_config_from_progress(self):
     """Restore configuration from saved progress."""
@@ -1081,10 +909,6 @@ class AutoSetup:
         'workspace_url': 'https://demo.cloud.databricks.com',
         'suggested_catalog': 'workspace',
         'suggested_schema': 'default',
-        'suggested_names': {
-          'experiment_name': 'mlflow_demo_experiment',
-          'app_name': 'mlflow_demo_app',
-        },
       }
       return True
 
@@ -1094,15 +918,11 @@ class AutoSetup:
     # Suggest catalog/schema
     catalog, schema = self.env_detector.suggest_catalog_schema()
 
-    # Suggest unique names
-    name_suggestions = self.env_detector.suggest_unique_names()
-
     # Store detected settings
     self.detected_settings = {
       'workspace_url': workspace_url,
       'suggested_catalog': catalog,
       'suggested_schema': schema,
-      'suggested_names': name_suggestions,
     }
 
     return True
@@ -1158,14 +978,13 @@ class AutoSetup:
     # App name selection - only required for full deployment
     app_name = None
     if deployment_mode == 'full_deployment':
-      suggested_app_name = self.detected_settings['suggested_names']['app_name']
-      app_name = self._prompt_for_app_name(suggested_app_name)
+      app_name = self._prompt_for_app_name()
       if not app_name:
         print('❌ App name is required for full deployment')
         return False
     else:
       # For notebook-only mode, use a default app name for workspace path generation
-      app_name = self.detected_settings['suggested_names']['app_name']
+      app_name = self._generate_default_app_name()
       print(f'📓 Using default app name for workspace sync: {app_name}')
 
     # LLM model selection
@@ -1448,18 +1267,10 @@ class AutoSetup:
 
   def _create_app(self) -> bool:
     """Create Databricks App."""
-    # Use app name from config if available, otherwise from detected settings
-    if 'DATABRICKS_APP_NAME' in self.config:
-      app_name = self.config['DATABRICKS_APP_NAME']
-    else:
-      if (
-        'suggested_names' not in self.detected_settings
-        or 'app_name' not in self.detected_settings['suggested_names']
-      ):
-        if 'suggested_names' not in self.detected_settings:
-          self.detected_settings['suggested_names'] = {}
-        self.detected_settings['suggested_names']['app_name'] = 'mlflow_demo_app'
-      app_name = self.detected_settings['suggested_names']['app_name']
+    # Use app name from config (should be set by user input collection)
+    app_name = self.config.get('DATABRICKS_APP_NAME')
+    if not app_name:
+      app_name = self._generate_default_app_name()
       self.config['DATABRICKS_APP_NAME'] = app_name
 
     print(f'📱 Creating Databricks App: {app_name}')
@@ -1754,12 +1565,25 @@ class AutoSetup:
     workspace_host = self.config.get('DATABRICKS_HOST', '').rstrip('/')
     return f"{workspace_host}/apps/{app_name}"
 
-  def _get_notebook_url(self, workspace_path: str, notebook_name: str) -> str:
+  def _get_notebook_url(self, notebook_name: str) -> str:
     """Generate the direct URL to a notebook in the Databricks workspace."""
-    workspace_host = self.config.get('DATABRICKS_HOST', '').rstrip('/')
-    # Encode the path for URL safety
-    encoded_path = workspace_path.replace(' ', '%20').replace('//', '/')
-    return f"{workspace_host}/#notebook/{encoded_path}/{notebook_name}"
+    workspace_host = self._ensure_https_protocol(self.config.get('DATABRICKS_HOST', '')).rstrip('/')
+    lha_source_code_path = self.config.get('LHA_SOURCE_CODE_PATH')
+    
+    for i in self.client.workspace.list(f'{lha_source_code_path}/mlflow_demo/notebooks', recursive=True):
+      if i.path and i.path.endswith(notebook_name):
+        return f'{workspace_host}/editor/notebooks/{i.resource_id}'
+    return 'NOT FOUND'
+
+  def _ensure_https_protocol(self, host: str | None) -> str:
+    """Ensure the host URL has HTTPS protocol."""
+    if not host:
+      return ''
+
+    if host.startswith('https://') or host.startswith('http://'):
+      return host
+
+    return f'https://{host}'
 
   def _get_experiment_url(self, experiment_id: str) -> str:
     """Generate the direct URL to the MLflow experiment."""
@@ -1789,7 +1613,7 @@ class AutoSetup:
         print(f'   ↳ Interactive demo application ready to use')
       else:
         workspace_path = self.config.get('LHA_SOURCE_CODE_PATH', '/Workspace/...')
-        notebook_url = self._get_notebook_url(workspace_path + '/mlflow_demo/notebooks', '0_demo_overview')
+        notebook_url = self._get_notebook_url('0_demo_overview')
         print(f'📓 Demo Overview Notebook: {notebook_url}')
         print(f'   ↳ Start here for interactive learning experience')
       
@@ -1845,10 +1669,23 @@ class AutoSetup:
         print('🚨 🚨 🚨  YOUR NOTEBOOK IS READY - CLICK HERE TO START  🚨 🚨 🚨')
         print('=' * 80)
         workspace_path = self.config.get('LHA_SOURCE_CODE_PATH', '/Workspace/...')
-        notebook_url = self._get_notebook_url(workspace_path + '/mlflow_demo/notebooks', '0_demo_overview')
+        notebook_url = self._get_notebook_url('0_demo_overview')
         print(f'\n🎯 👉 START HERE: {notebook_url}')
         print('\n   ↳ This opens the Demo Overview Notebook - your starting point!')
         print('   ↳ Follow the step-by-step interactive guide')
+        print('   ↳ Learn how to use MLflow to improve GenAI quality')
+        print('\n' + '=' * 80)
+      
+      # For full deployment mode, show the app URL prominently
+      elif deployment_mode == 'full_deployment':
+        print('\n\n' + '=' * 80)
+        print('🚀 🚀 🚀  YOUR APP IS DEPLOYED - CLICK HERE TO START  🚀 🚀 🚀')
+        print('=' * 80)
+        app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
+        app_url = self._get_app_url(app_name)
+        print(f'\n🎯 👉 START HERE: {app_url}')
+        print('\n   ↳ This opens your deployed MLflow Demo App')
+        print('   ↳ Interactive web interface with all features')
         print('   ↳ Learn how to use MLflow to improve GenAI quality')
         print('\n' + '=' * 80)
 
