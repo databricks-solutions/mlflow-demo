@@ -87,10 +87,16 @@ class ProgressTracker:
         'dependencies': ['collect_user_input'],
       },
       {
+        'id': 'show_installation_preview',
+        'name': 'Installation Preview',
+        'description': 'Show what will be created and get user confirmation',
+        'dependencies': ['validate_config'],
+      },
+      {
         'id': 'create_catalog_schema',
         'name': 'Create Catalog & Schema',
         'description': 'Create Unity Catalog resources if needed',
-        'dependencies': ['validate_config'],
+        'dependencies': ['show_installation_preview'],
       },
       {
         'id': 'create_experiment',
