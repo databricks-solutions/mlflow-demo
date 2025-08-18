@@ -90,21 +90,13 @@ else
     echo "✅ Python version $python_version is supported"
 fi
 
-# Check uv
-echo "🔍 Checking uv package manager..."
-if ! command -v uv >/dev/null 2>&1; then
-    echo "❌ uv is not installed"
-    missing_prereqs+=("uv package manager")
-    will_install+=("uv")
-else
-    echo "✅ uv is installed"
-fi
-
 # Check Databricks CLI
 echo "🔍 Checking Databricks CLI..."
+databricks_result=0
 if ! command -v databricks >/dev/null 2>&1; then
     echo "❌ Databricks CLI not found"
     missing_prereqs+=("Databricks CLI")
+    databricks_result=2
 else
     cli_version=$(databricks --version 2>/dev/null | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' | sed 's/v//' || echo "0.0.0")
     echo "Found Databricks CLI version: $cli_version"
@@ -112,10 +104,10 @@ else
     
     set +e  # Temporarily disable exit on error
     version_compare "$cli_version" "$required_cli"
-    result=$?
+    databricks_result=$?
     set -e  # Re-enable exit on error
     
-    if [[ $result -eq 2 ]]; then
+    if [[ $databricks_result -eq 2 ]]; then
         echo "❌ Databricks CLI version $cli_version is too old. Required: >= $required_cli"
         missing_prereqs+=("Databricks CLI >= $required_cli")
     else
@@ -123,12 +115,47 @@ else
     fi
 fi
 
-# Check bun
+# Check uv (only if Python and Databricks CLI are available)
+echo "🔍 Checking uv package manager..."
+if ! command -v uv >/dev/null 2>&1; then
+    echo "❌ uv is not installed"
+    missing_prereqs+=("uv package manager")
+    # Only add to will_install if both Python and Databricks CLI are properly installed
+    if [[ $result -ne 2 ]] && [[ $databricks_result -ne 2 ]]; then
+        will_install+=("uv")
+    fi
+else
+    echo "✅ uv is installed"
+fi
+
+# Check bun (only if Python and Databricks CLI are available)
 echo "🔍 Checking bun JavaScript runtime..."
+python_ok=true
+databricks_ok=true
+
+# Check if Python requirement was met
+for prereq in "${missing_prereqs[@]}"; do
+    if [[ "$prereq" == *"Python"* ]]; then
+        python_ok=false
+        break
+    fi
+done
+
+# Check if Databricks CLI requirement was met
+for prereq in "${missing_prereqs[@]}"; do
+    if [[ "$prereq" == *"Databricks CLI"* ]]; then
+        databricks_ok=false
+        break
+    fi
+done
+
 if ! command -v bun >/dev/null 2>&1; then
     echo "❌ bun is not installed"
     missing_prereqs+=("bun JavaScript runtime")
-    will_install+=("bun")
+    # Only add to will_install if both Python and Databricks CLI are OK
+    if [ "$python_ok" = true ] && [ "$databricks_ok" = true ]; then
+        will_install+=("bun")
+    fi
 else
     echo "✅ bun is installed"
 fi
@@ -165,6 +192,7 @@ if [ ${#will_install[@]} -gt 0 ]; then
     done
     
     if [ "$manual_install_needed" = true ]; then
+        echo "⚠️  CRITICAL: Python and Databricks CLI must be installed first!"
         echo "📋 The following must be installed manually:"
         for prereq in "${missing_prereqs[@]}"; do
             if [[ "$prereq" == *"Python"* ]]; then
@@ -174,6 +202,9 @@ if [ ${#will_install[@]} -gt 0 ]; then
             fi
         done
         echo ""
+        echo "❌ Cannot install uv/bun until Python and Databricks CLI are properly installed."
+        echo "   Please install the above requirements and run this script again."
+        exit 1
     fi
     
     read -p "Would you like to install the automatic prerequisites now? (Y/n): " -n 1 -r
@@ -192,6 +223,10 @@ if [ ${#will_install[@]} -gt 0 ]; then
     fi
 else
     echo "❌ Cannot proceed. Please install the missing prerequisites manually:"
+    echo ""
+    
+    # Show critical prerequisites first
+    echo "⚠️  CRITICAL (must be installed first):"
     for prereq in "${missing_prereqs[@]}"; do
         if [[ "$prereq" == *"Python"* ]]; then
             echo "  • Install Python $required_python or newer from https://python.org"
@@ -199,6 +234,26 @@ else
             echo "  • Install/update Databricks CLI from https://docs.databricks.com/aws/en/dev-tools/cli/install"
         fi
     done
+    
+    # Show other prerequisites
+    other_prereqs_exist=false
+    for prereq in "${missing_prereqs[@]}"; do
+        if [[ "$prereq" != *"Python"* ]] && [[ "$prereq" != *"Databricks CLI"* ]]; then
+            if [ "$other_prereqs_exist" = false ]; then
+                echo ""
+                echo "📋 After installing the above, run this script again to install:"
+                other_prereqs_exist=true
+            fi
+            if [[ "$prereq" == *"uv"* ]]; then
+                echo "  • uv package manager (will be auto-installed)"
+            elif [[ "$prereq" == *"bun"* ]]; then
+                echo "  • bun JavaScript runtime (will be auto-installed)"
+            else
+                echo "  • $prereq"
+            fi
+        fi
+    done
+    
     exit 1
 fi
 
