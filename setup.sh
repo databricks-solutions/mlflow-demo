@@ -184,21 +184,13 @@ fi
 
 echo ""
 
-# Install Python dependencies
-echo "🐍 Installing Python dependencies with uv..."
-uv sync
-echo "✅ Python dependencies installed successfully!"
-
-echo ""
-
-# Install frontend dependencies
-echo "📱 Installing frontend dependencies with bun..."
-# Remove any npm lock files that shouldn't be there
-[ -f client/package-lock.json ] && rm client/package-lock.json
-pushd client > /dev/null
-bun install
-popd > /dev/null
-echo "✅ Frontend dependencies installed successfully!"
+# Initialize Python and TypeScript environments
+echo "📦 Initializing development environments..."
+./initialize-environment.sh
+if [ $? -ne 0 ]; then
+    echo "❌ Environment initialization failed. Please check the output above and try again."
+    exit 1
+fi
 
 echo ""
 echo "🚀 Setup complete! You can now run your application with these environment variables!"
