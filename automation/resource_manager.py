@@ -208,9 +208,7 @@ class DatabricksResourceManager:
       from datetime import timedelta
 
       try:
-        app = self.client.apps.start_and_wait(
-          name=app_name, timeout=timedelta(minutes=timeout_minutes)
-        )
+        self.client.apps.start_and_wait(name=app_name, timeout=timedelta(minutes=timeout_minutes))
         print(f"✅ App '{app_name}' started successfully and is now active")
         return True
 
@@ -224,7 +222,7 @@ class DatabricksResourceManager:
           start_waiter.result(timeout=timedelta(minutes=timeout_minutes))
 
           # Wait for app to become active
-          app = self.client.apps.wait_get_app_active(
+          self.client.apps.wait_get_app_active(
             name=app_name, timeout=timedelta(minutes=timeout_minutes)
           )
           print(f"✅ App '{app_name}' started successfully and is now active")
@@ -311,7 +309,8 @@ class DatabricksResourceManager:
 
       if success_count > 0:
         print(
-          f"✅ Successfully granted {success_count}/{len(permissions)} catalog permissions on '{catalog_name}' to '{principal}'"
+          f'✅ Successfully granted {success_count}/{len(permissions)} catalog '
+          f"permissions on '{catalog_name}' to '{principal}'"
         )
       else:
         raise Exception('No catalog permissions were successfully granted')
@@ -397,7 +396,8 @@ class DatabricksResourceManager:
 
       if success_count > 0:
         print(
-          f"✅ Successfully granted {success_count}/{len(permissions)} permissions on '{schema_full_name}' to '{principal}'"
+          f'✅ Successfully granted {success_count}/{len(permissions)} permissions '
+          f"on '{schema_full_name}' to '{principal}'"
         )
       else:
         raise Exception('No permissions were successfully granted')
@@ -516,12 +516,13 @@ class DatabricksResourceManager:
         return
 
       # Use the experiments API to set permissions (replaces all permissions)
-      result = self.client.experiments.set_permissions(
+      self.client.experiments.set_permissions(
         experiment_id=experiment_id, access_control_list=access_control_list
       )
 
       print(
-        f"✅ Granted {permissions} on experiment '{experiment_id}' to '{principal}' (preserved existing permissions)"
+        f"✅ Granted {permissions} on experiment '{experiment_id}' to '{principal}' "
+        f'(preserved existing permissions)'
       )
 
     except Exception as e:
@@ -596,11 +597,12 @@ class DatabricksResourceManager:
         )
 
         # Use the serving endpoint permissions API
-        result = self.client.serving_endpoints.update_permissions(
+        self.client.serving_endpoints.update_permissions(
           serving_endpoint_id=endpoint_name, access_control_list=[access_control_request]
         )
         print(
-          f"✅ Granted CAN_QUERY permission on serving endpoint '{endpoint_name}' to '{app_sp_display_name}'"
+          f"✅ Granted CAN_QUERY permission on serving endpoint '{endpoint_name}' "
+          f"to '{app_sp_display_name}'"
         )
 
       except Exception as serving_error:
