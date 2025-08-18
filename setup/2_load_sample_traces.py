@@ -20,7 +20,6 @@ logging.getLogger("urllib3").setLevel(logging.ERROR)
 logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 from mlflow_demo.agent.email_generator import EmailGenerator
-from server.routes.email import FeedbackRating
 
 PROMPT_NAME = os.getenv('PROMPT_NAME')
 PROMPT_ALIAS = os.getenv('PROMPT_ALIAS')
