@@ -19,35 +19,6 @@ auto-setup.py (Main Orchestrator)
     └── validation.py (Pre/post checks)
 ```
 
-
-# Flow
-
-1. Install pre-reqs
-   - Validate Python version (≥3.10.16)
-   - `uv` Python package manager
-   -  Databricks CLI (≥0.262.0)
-   -  `bun` Javascript runtime (replacement for node.js)
-2. Initialize the Typescript & Python environments
-   3. Install Python dependencies via `uv sync`
-   4.  Install frontend dependencies via `bun install`
-   5. Install/ensure `bun` is available
-3. Get input from user
-   1. Workspace URL & Auth
-   2. UC Catalog and Schema with correct permissions
-   3. Name to use (informs the experiment name)
-   4. Install DB App or Just notebooks?
-   5. Advanced config
-      1. Change LLM used
-      2. Change experiment folder location
-4. Validates everything is good
-5. Shows the user what it will do e.g., permissions changed, what it will create, etc
-6. User says yes or no
-7. Does it
-
-# Key features
-- All logging goes to setup.log
-- 
-
 ## System Components
 
 ### 1. auto-setup.sh (Bash Wrapper)
