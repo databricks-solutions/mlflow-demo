@@ -313,5 +313,19 @@ fi
 echo ""
 echo "✅ All prerequisites installed successfully!"
 echo ""
-echo "📝 Note: If you installed new tools, you may need to restart your terminal"
-echo "   or run 'source ~/.bashrc' (or ~/.zshrc) to update your PATH."
+
+# Check if we installed uv or bun and force shell restart
+if [[ " ${will_install[@]} " =~ " uv " ]] || [[ " ${will_install[@]} " =~ " bun " ]]; then
+    echo "🔄 REQUIRED: You must restart your terminal or source your shell configuration!"
+    echo ""
+    echo "Choose one of the following options:"
+    echo "  1. Close and reopen your terminal (recommended)"
+    echo "  2. Run: source ~/.bashrc    (for bash users)"
+    echo "  3. Run: source ~/.zshrc     (for zsh users)"
+    echo ""
+    echo "❗ This script will now exit. Please complete the above step and"
+    echo "   run the setup script again to continue with the demo setup."
+    exit 0
+else
+    echo "📝 All tools were already installed. You can proceed with the demo setup."
+fi
