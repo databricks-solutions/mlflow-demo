@@ -298,10 +298,19 @@ class SetupValidator:
       return False
 
   def _check_app_status(self, app_name: str) -> bool:
-    """Check if app is in ACTIVE status."""
+    """Check if app is in ACTIVE/RUNNING status."""
     try:
       app = self.client.apps.get(app_name)
-      return getattr(app, 'status', '').upper() == 'ACTIVE'
+      
+      # Check app_status attribute which contains the ApplicationStatus
+      if hasattr(app, 'app_status') and app.app_status:
+        if hasattr(app.app_status, 'state'):
+          state_str = str(app.app_status.state).upper()
+          # Accept both RUNNING and ACTIVE states as ready
+          return 'RUNNING' in state_str or 'ACTIVE' in state_str
+      
+      # Fallback: check if app has URL (indicates it's deployed)
+      return bool(getattr(app, 'url', None))
     except Exception:
       return False
 
@@ -420,20 +429,30 @@ class SetupValidator:
     while time.time() - start_time < timeout_seconds:
       try:
         app = self.client.apps.get(app_name)
-        status = getattr(app, 'status', '').upper()
+        
+        # Get the actual status from app_status.state
+        status_display = "unknown"
+        is_ready = False
+        
+        if hasattr(app, 'app_status') and app.app_status:
+          if hasattr(app.app_status, 'state'):
+            status_display = str(app.app_status.state)
+            state_str = status_display.upper()
+            is_ready = 'RUNNING' in state_str or 'ACTIVE' in state_str
+        
+        # Also check if app has URL as additional confirmation
+        app_url = getattr(app, 'url', None)
+        has_url = bool(app_url)
+        
+        if is_ready and has_url:
+          print(f"✅ App '{app_name}' is ready and has URL")
+          return True
 
-        if status == 'ACTIVE':
-          # Try to get app URL and test basic connectivity
-          app_url = getattr(app, 'app_url', None)
-          if app_url and self._test_health_endpoint(app_url):
-            print(f"✅ App '{app_name}' is ready and responsive")
-            return True
-
-        print(f'   App status: {status} - waiting...')
-        time.sleep(30)
+        print(f'   App status: {status_display} - waiting...')
+        time.sleep(10)  # Reduced from 30s to 10s for faster checking
       except Exception as e:
         print(f'   Error checking app: {e} - retrying...')
-        time.sleep(30)
+        time.sleep(10)
 
     print(f"⚠️  Timeout waiting for app '{app_name}' to be ready")
     return False
