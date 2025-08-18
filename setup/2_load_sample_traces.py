@@ -63,7 +63,7 @@ def generate_email_for_customer(customer_data, line_num):
   """Generate email for a single customer."""
   try:
     customer_name = customer_data.get("account", {}).get("name", "Unknown")
-    print(f'Processing customer {line_num}: {customer_name}')
+    print(f'Creating sample trace {line_num}: {customer_name}')
 
     generator = EmailGenerator()
     user_input = customer_data.get("user_input")
@@ -114,7 +114,7 @@ def process_input_data(input_file='input_data.jsonl', max_workers=5, max_records
   # limit to the max records
   customers = customers[:max_records]
 
-  print(f'Processing {len(customers)} customers with {max_workers} workers...')
+  print(f'Adding {len(customers)} sample traces using {max_workers} workers...')
 
   results = []
   error_count = 0
@@ -138,7 +138,7 @@ def process_input_data(input_file='input_data.jsonl', max_workers=5, max_records
       if error:
         error_count += 1
 
-  print('\nProcessing complete!')
+  print('\Sample data loaded!')
   print(f'Total processed: {len(results)}')
   print(f'Total errors: {error_count}')
 

@@ -171,6 +171,12 @@ source .env.local
 set +a
 
 # Substitute notebook URLs in app.yaml
+if [ -n "$NOTEBOOK_URL_0_demo_overview" ]; then
+  echo "🔧 Setting NOTEBOOK_URL_0_demo_overview to $NOTEBOOK_URL_0_demo_overview in app.yaml..."
+  sed -i.bak "s|value: 'placeholder-notebook-url-0'|value: '$NOTEBOOK_URL_0_demo_overview'|" app.yaml
+  rm -f app.yaml.bak
+fi
+
 if [ -n "$NOTEBOOK_URL_1_observe_with_traces" ]; then
   echo "🔧 Setting NOTEBOOK_URL_1_observe_with_traces to $NOTEBOOK_URL_1_observe_with_traces in app.yaml..."
   sed -i.bak "s|value: 'placeholder-notebook-url-1'|value: '$NOTEBOOK_URL_1_observe_with_traces'|" app.yaml

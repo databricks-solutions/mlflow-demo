@@ -472,10 +472,12 @@ def make_eval_datasets_and_baseline_runs_for_prompt_test():
       print(f'no assessments for {trace.info.trace_id}, deleting it')
       # print(trace.info.experiment_id)
       client.delete_traces(experiment_id=trace.info.experiment_id, trace_ids=[trace.info.trace_id])
+    is_bad_example = False
     for assessment in trace.info.assessments:
       if assessment.name == 'accuracy' and assessment.feedback.value == 'no':
         if len(failed_accuracy) < 5:
           failed_accuracy.append(trace.info.trace_id)
+          is_bad_example = True
           # print(f'failed accuracy: {trace.info.trace_id}')
       elif assessment.name == 'relevance' and assessment.feedback.value == 'yes':
         number_passes += 1
@@ -483,7 +485,7 @@ def make_eval_datasets_and_baseline_runs_for_prompt_test():
         number_passes += 1
       elif assessment.name == 'accuracy' and assessment.feedback.value == 'yes':
         number_passes += 1
-    if number_passes >= 2:
+    if number_passes >= 2 and not is_bad_example:
       if len(passed_all) < 5:
         passed_all.append(trace.info.trace_id)
         # print(f'passed all: {trace.info.trace_id}')
@@ -492,9 +494,11 @@ def make_eval_datasets_and_baseline_runs_for_prompt_test():
     f'Found {len(failed_accuracy)} traces for low accuracy and {len(passed_all)} traces for regression, adding tags'
   )
   for trace_id in failed_accuracy:
+    print(f"Low accuracy trace_id: {trace_id}")
     mlflow.set_trace_tag(trace_id=trace_id, key='eval_example', value='yes')
 
   for trace_id in passed_all:
+    print(f"Regression set trace_id: {trace_id}")
     mlflow.set_trace_tag(trace_id=trace_id, key='eval_example', value='regression')
 
   print('Creating and adding traces to eval datasets...')

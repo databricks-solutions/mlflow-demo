@@ -39,6 +39,8 @@ env:
     value: 'placeholder-sample-trace-id'
   - name: 'LHA_SOURCE_CODE_PATH'
     value: 'placeholder-lha-source-code-path'
+  - name: 'NOTEBOOK_URL_0_demo_overview'
+    value: 'placeholder-notebook-url-0'
   - name: 'NOTEBOOK_URL_1_observe_with_traces'
     value: 'placeholder-notebook-url-1'
   - name: 'NOTEBOOK_URL_2_create_quality_metrics'

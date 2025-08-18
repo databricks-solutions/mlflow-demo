@@ -41,6 +41,7 @@ def get_notebook_url(name: str) -> str:
 
 
 notebooks = [
+  '0_demo_overview',
   '1_observe_with_traces',
   '2_create_quality_metrics',
   '3_find_fix_quality_issues',
