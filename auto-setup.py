@@ -813,41 +813,6 @@ class AutoSetup:
       except KeyboardInterrupt:
         return suggested_model or available_models[0]
 
-  def _prompt_for_advanced_config(self, app_name: str) -> Dict[str, str]:
-    """Interactive advanced configuration options."""
-    print('\n⚙️ Advanced Configuration (Optional)')
-    print('Press Enter to use defaults for all options')
-    
-    advanced_config = {}
-    
-    # Ask if user wants to configure advanced options
-    configure_advanced = input('\nConfigure advanced options? (y/N): ').strip().lower()
-    
-    if configure_advanced not in ['y', 'yes']:
-      print('✅ Using default advanced configuration')
-      return advanced_config
-    
-    print('\n🔧 Advanced Options:')
-    
-    # Experiment folder location
-    print(f'\n📁 MLflow Experiment Location')
-    print(f'   Default: /Shared/{app_name}')
-    print('   This determines where your MLflow experiment will be created in the workspace')
-    
-    custom_experiment_path = input('Custom experiment path (or press ENTER for default): ').strip()
-    if custom_experiment_path:
-      # Validate the path format
-      if not custom_experiment_path.startswith('/'):
-        custom_experiment_path = '/' + custom_experiment_path
-      advanced_config['CUSTOM_EXPERIMENT_PATH'] = custom_experiment_path
-      print(f'✅ Will use custom experiment path: {custom_experiment_path}')
-    else:
-      print(f'✅ Will use default experiment path: /Shared/{app_name}')
-    
-    # Future advanced options can be added here
-    print('\n💡 More advanced options can be configured after setup in the .env.local file')
-    
-    return advanced_config
 
   def _prompt_for_app_name(self, suggested_app_name: str = None) -> str:
     """Interactive app name selection with permission checking."""
@@ -1206,9 +1171,6 @@ class AutoSetup:
     # LLM model selection
     llm_model = self._prompt_for_llm_model('databricks-claude-3-7-sonnet')
 
-    # Advanced configuration
-    advanced_config = self._prompt_for_advanced_config(app_name)
-
     # Store configuration
     self.config = {
       'DATABRICKS_HOST': workspace_url,
@@ -1218,9 +1180,6 @@ class AutoSetup:
       'LLM_MODEL': llm_model,
       'DEPLOYMENT_MODE': deployment_mode,
     }
-    
-    # Add advanced configuration if provided
-    self.config.update(advanced_config)
 
     return True
 
@@ -1292,12 +1251,8 @@ class AutoSetup:
     
     # MLflow experiment
     app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
-    if 'CUSTOM_EXPERIMENT_PATH' in self.config:
-        experiment_path = self.config['CUSTOM_EXPERIMENT_PATH']
-        print(f"🧪 MLflow Experiment: {experiment_path} (custom path)")
-    else:
-        experiment_path = f"/Shared/{app_name}"
-        print(f"🧪 MLflow Experiment: {experiment_path}")
+    experiment_path = f"/Shared/{app_name}"
+    print(f"🧪 MLflow Experiment: {experiment_path}")
     
     # Deployment mode specific resources
     if deployment_mode == 'full_deployment':
@@ -1473,17 +1428,9 @@ class AutoSetup:
     # Get app name from config for experiment naming
     app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
 
-    # Use custom experiment path if provided, otherwise default to /Shared/{app_name}
-    if 'CUSTOM_EXPERIMENT_PATH' in self.config:
-      experiment_name = self.config['CUSTOM_EXPERIMENT_PATH']
-      print(f'🧪 Creating MLflow experiment (custom path): {experiment_name}')
-    else:
-      # Add 4 random characters to prevent conflicts
-      # import random
-      # import string
-      # random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-      experiment_name = f'/Shared/{app_name}'
-      print(f'🧪 Creating MLflow experiment: {experiment_name}')
+    # Use default experiment path: /Shared/{app_name}
+    experiment_name = f'/Shared/{app_name}'
+    print(f'🧪 Creating MLflow experiment: {experiment_name}')
 
     if self.dry_run:
       print(f"   [DRY RUN] Would create experiment '{experiment_name}'")
