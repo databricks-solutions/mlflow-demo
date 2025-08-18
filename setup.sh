@@ -174,72 +174,31 @@ echo ""
 echo "📦 Installing dependencies..."
 echo ""
 
+# Run prerequisites check and installation
+echo "🔧 Checking and installing prerequisites..."
+./install-prerequisites.sh
+if [ $? -ne 0 ]; then
+    echo "❌ Prerequisites installation failed. Please check the output above and try again."
+    exit 1
+fi
+
+echo ""
+
 # Install Python dependencies
 echo "🐍 Installing Python dependencies with uv..."
-if command -v uv >/dev/null 2>&1; then
-    uv sync
-    echo "✅ Python dependencies installed successfully!"
-else
-    echo "❌ uv is not installed."
-    echo ""
-    read -p "Would you like to install uv now? (Y/n): " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        echo "⚠️  Skipping Python dependency installation. You can install uv later with:"
-        echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
-    else
-        echo "📥 Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        # Source the shell to get uv in PATH
-        export PATH="$HOME/.cargo/bin:$PATH"
-        if command -v uv >/dev/null 2>&1; then
-            echo "✅ uv installed successfully!"
-            uv sync
-            echo "✅ Python dependencies installed successfully!"
-        else
-            echo "❌ uv installation failed. Please restart your terminal and run setup again."
-        fi
-    fi
-fi
+uv sync
+echo "✅ Python dependencies installed successfully!"
 
 echo ""
 
 # Install frontend dependencies
 echo "📱 Installing frontend dependencies with bun..."
-if command -v bun >/dev/null 2>&1; then
-    # Remove any npm lock files that shouldn't be there
-    [ -f client/package-lock.json ] && rm client/package-lock.json
-    pushd client > /dev/null
-    bun install
-    popd > /dev/null
-    echo "✅ Frontend dependencies installed successfully!"
-else
-    echo "❌ bun is not installed."
-    echo ""
-    read -p "Would you like to install bun now? (Y/n): " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        echo "⚠️  Skipping frontend dependency installation. You can install bun later with:"
-        echo "   curl -fsSL https://bun.sh/install | bash"
-    else
-        echo "📥 Installing bun..."
-        curl -fsSL https://bun.sh/install | bash
-        # Source the shell to get bun in PATH
-        export BUN_INSTALL="$HOME/.bun"
-        export PATH="$BUN_INSTALL/bin:$PATH"
-        if command -v bun >/dev/null 2>&1; then
-            echo "✅ bun installed successfully!"
-            # Remove any npm lock files that shouldn't be there
-            [ -f client/package-lock.json ] && rm client/package-lock.json
-            pushd client > /dev/null
-            bun install
-            popd > /dev/null
-            echo "✅ Frontend dependencies installed successfully!"
-        else
-            echo "❌ bun installation failed. Please restart your terminal and run setup again."
-        fi
-    fi
-fi
+# Remove any npm lock files that shouldn't be there
+[ -f client/package-lock.json ] && rm client/package-lock.json
+pushd client > /dev/null
+bun install
+popd > /dev/null
+echo "✅ Frontend dependencies installed successfully!"
 
 echo ""
 echo "🚀 Setup complete! You can now run your application with these environment variables!"
