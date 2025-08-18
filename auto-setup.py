@@ -984,7 +984,7 @@ class AutoSetup:
     else:
       # For notebook-only mode, use a default app name for workspace path generation
       app_name = self._generate_default_app_name()
-      print(f'📓 Using default app name for workspace sync: {app_name}')
+      print(f'📓 Using default name for workspace sync: {app_name}')
 
     # LLM model selection
     llm_model = self._prompt_for_llm_model('databricks-claude-3-7-sonnet')
