@@ -10,6 +10,9 @@ import dotenv
 # Load environment variables from .env.local in project root
 dotenv.load_dotenv(project_root / '.env.local')
 
+# allow databricks-cli auth to take over
+os.environ.pop('DATABRICKS_HOST', None)
+
 
 import logging
 logging.getLogger("urllib3").setLevel(logging.ERROR)
