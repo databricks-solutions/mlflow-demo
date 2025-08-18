@@ -8,6 +8,11 @@ set -e  # Exit on any error
 echo "🚀 MLflow Demo Auto-Setup Wrapper"
 echo "=================================="
 echo ""
+echo "This script will guide you through setting up the MLflow demo."
+echo "You'll be able to choose between:"
+echo "  • 📱 Full App Deployment - Complete web app with interactive UI"
+echo "  • 📓 Notebook-Only Experience - Interactive notebooks for learning"
+echo ""
 
 # Check if uv is available
 if ! command -v uv >/dev/null 2>&1; then
