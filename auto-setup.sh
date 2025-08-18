@@ -5,20 +5,42 @@
 
 set -e  # Exit on any error
 
-echo "🚀 MLflow Demo Auto-Setup Wrapper"
-echo "=================================="
+# Check for --reset argument and handle it early
+for arg in "$@"; do
+    if [[ "$arg" == "--reset" ]]; then
+        echo "🔄 Resetting all progress..."
+        if [ -f ".setup_progress.json" ]; then
+            rm .setup_progress.json
+            echo "✅ Removed .setup_progress.json - setup will start fresh"
+        else
+            echo "✅ No progress file found - already reset"
+        fi
+        echo "Run auto-setup again to begin setup process."
+        exit 0
+    fi
+done
+
+echo "🚀 MLflow Demo"
+echo "========================="
 echo ""
-echo "This script will guide you through setting up the MLflow demo."
-echo "You'll be able to choose between:"
-echo "  • 📱 Full App Deployment - Complete web app with interactive UI"
-echo "  • 📓 Notebook-Only Experience - Interactive notebooks for learning"
+echo "This creates sample GenAI application that shows you how to use MLflow to evaluate, improve, and monitor the app's quality."
+echo " Sample application: Generate sales follow up emails based on retrieved customer data"
+echo ""
+echo "You will get:"
+echo "• MLflow Experiment with sample traces, prompts, evaluation runs, and production monitoring"
+echo "• Sales email generation app with sample data" 
+echo "• Interactive notebooks that show how to use MLflow for quality evaluation and monitoring"
+echo ""
+echo "========================="
+echo "Before we start, we will check/install the required prerequisites & initialize the Python/Typescript environments."
+echo "========================="
 echo ""
 
 # Run prerequisites check and installation
 echo "🔧 Checking and installing prerequisites..."
 ./install-prerequisites.sh
 if [ $? -ne 0 ]; then
-    echo "❌ Prerequisites installation failed. Please check the output above and try again."
+    echo "Please check the output above and try again."
     exit 1
 fi
 
@@ -26,7 +48,7 @@ fi
 echo "📦 Initializing development environments..."
 ./initialize-environment.sh
 if [ $? -ne 0 ]; then
-    echo "❌ Environment initialization failed. Please check the output above and try again."
+    echo "Please check the output above and try again."
     exit 1
 fi
 
