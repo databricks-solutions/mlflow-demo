@@ -676,7 +676,7 @@ class DatabricksResourceManager:
     while time.time() - start_time < timeout_seconds:
       try:
         app = self.client.apps.get(app_name)
-        if hasattr(app, 'status') and app.status == 'ACTIVE':
+        if hasattr(app, 'app_status') and app.app_status.state == 'RUNNING':
           print(f"✅ App '{app_name}' is now active")
           return True
         time.sleep(10)
