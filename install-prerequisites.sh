@@ -325,7 +325,7 @@ if [[ " ${will_install[@]} " =~ " uv " ]] || [[ " ${will_install[@]} " =~ " bun 
     echo ""
     echo "❗ This script will now exit. Please complete the above step and"
     echo "   run the setup script again to continue with the demo setup."
-    exit 0
+    exit -1
 else
     echo "📝 All tools were already installed. You can proceed with the demo setup."
 fi
