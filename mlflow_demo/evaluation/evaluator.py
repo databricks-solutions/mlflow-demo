@@ -41,6 +41,7 @@ def accuracy(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -54,8 +55,7 @@ def accuracy(trace):
 - Support ticket information must include correct ticket IDs, status, and resolution details when available
 - All product usage statistics must be presented with the same metrics provided in the data
 - No references to CloudFlow features, services, or offerings unless specifically mentioned in the customer data
-- AUTOMATIC FAIL if any information is mentioned that is not explicitly provided in the data
-"""
+- It is OK if the email_body follows the user_input request to omit certain facts, as long as no fabricated facts are introduced"""
 
   # Use the proven Guidelines judge with our extracted email body
   return meets_guidelines(
@@ -74,6 +74,7 @@ def personalized(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -90,8 +91,8 @@ def personalized(trace):
   a) Listed as "least_used_features" in the data, AND
   b) Directly related to the "potential_opportunity" field
 - Relationship history must be acknowledged (new vs. mature relationship)
-- Deal stage must influence communication approach (implementation vs. renewal vs. growth)
-- AUTOMATIC FAIL if recommendations could be copied to another customer in a different situation"""
+- Deal stage must influence communication approach (implementation vs. renewal vs. growth)"""
+# - AUTOMATIC FAIL if recommendations could be copied to another customer in a different situation"""
 
   # Use the proven Guidelines judge with our extracted email body
   return meets_guidelines(
@@ -110,6 +111,7 @@ def relevance(trace):
   This demonstrates how to wrap the proven Guidelines judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
@@ -128,8 +130,8 @@ def relevance(trace):
   5. Usage trends and recommendations
 - No more than ONE feature recommendation for accounts with open critical issues
 - No mentions of company news, product releases, or success stories not directly requested by the customer
-- No calls to action unrelated to the immediate needs in the data
-- AUTOMATIC FAIL if the email requests a meeting without being tied to a specific action item or opportunity in the data"""
+- No calls to action unrelated to the immediate needs in the data"""
+# - AUTOMATIC FAIL if the email requests a meeting without being tied to a specific action item or opportunity in the data"""
 
   # Use the proven Guidelines judge with our extracted email body
   return meets_guidelines(

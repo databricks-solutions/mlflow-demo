@@ -45,3 +45,12 @@ mlflow.genai.set_prompt_alias(
 )
 
 print(f'added alias `production`to prompt: {prompt.name}@{prompt.version}')
+
+
+# Set MLflow Experiment to load prompts from the UC schema
+tags = {
+    "mlflow.promptRegistryLocation": f"{UC_CATALOG}.{UC_SCHEMA}",
+}
+
+mlflow.set_experiment_tags(tags)
+

@@ -75,6 +75,7 @@ exclude = [
   "**/*.ipynb",
   "**/WORKING_DASH_CODE/",
   "**/notebooks/WORKING_DASH_CODE/",
+  "mlflow_demo/evaluation/evaluator.py"
 ]
 
 [tool.ruff.lint]

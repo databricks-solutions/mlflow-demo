@@ -138,7 +138,7 @@ def process_input_data(input_file='input_data.jsonl', max_workers=5, max_records
       if error:
         error_count += 1
 
-  print('\Sample data loaded!')
+  print('Sample data loaded!')
   print(f'Total processed: {len(results)}')
   print(f'Total errors: {error_count}')
 
