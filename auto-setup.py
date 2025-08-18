@@ -810,7 +810,6 @@ class AutoSetup:
           app_steps = [
             'create_app',
             'setup_permissions',
-            'deploy_app',
             'validate_deployment',
             'run_integration_tests',
           ]
