@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MLflow Demo Automated Setup Script
+"""MLflow Demo Automated Setup Script.
 
 This script automates the entire end-to-end setup process for the MLflow demo application,
 including creating Databricks resources, configuring environment, loading sample data,
@@ -32,10 +32,11 @@ from databricks.sdk.errors import NotFound, PermissionDenied
 automation_dir = Path(__file__).parent / 'automation'
 sys.path.insert(0, str(automation_dir))
 
-from environment_detector import EnvironmentDetector
-from progress_tracker import ProgressTracker
-from resource_manager import DatabricksResourceManager
-from validation import SetupValidator
+# Import after sys.path modification
+from environment_detector import EnvironmentDetector  # noqa: E402
+from progress_tracker import ProgressTracker  # noqa: E402
+from resource_manager import DatabricksResourceManager  # noqa: E402
+from validation import SetupValidator  # noqa: E402
 
 
 class Spinner:
@@ -167,7 +168,8 @@ class AutoSetup:
       # Most users won't need to check thousands of catalogs
       catalog_sample = catalogs[:50] if len(catalogs) > 50 else catalogs
       print(
-        f'✅ Found {len(catalogs)} catalogs, verifying CREATE SCHEMA permissions on first {len(catalog_sample)}'
+        f'✅ Found {len(catalogs)} catalogs, verifying CREATE SCHEMA permissions on '
+        f'first {len(catalog_sample)}'
       )
       print('🔍 This may take a moment as we test actual CREATE SCHEMA permissions...')
 
@@ -178,12 +180,13 @@ class AutoSetup:
         # Show progress for long operations
         if i % 10 == 0 and i > 0:
           print(
-            f'   Verified {verified_count} usable catalogs after checking {i}/{len(catalog_sample)}...'
+            f'   Verified {verified_count} usable catalogs after checking '
+            f'{i}/{len(catalog_sample)}...'
           )
 
         try:
           # First check if we can list schemas (USE CATALOG permission)
-          schemas = list(self.client.schemas.list(catalog_name=catalog_name))
+          list(self.client.schemas.list(catalog_name=catalog_name))
 
           # Then test CREATE SCHEMA permission by actually trying to create a schema
           if self._test_create_schema_permission(catalog_name):
@@ -276,9 +279,7 @@ class AutoSetup:
             if not (has_manage and has_create_table):
               # Try to list tables as a proxy for having reasonable access
               try:
-                tables = list(
-                  self.client.tables.list(catalog_name=catalog_name, schema_name=schema_name)
-                )
+                list(self.client.tables.list(catalog_name=catalog_name, schema_name=schema_name))
                 # If we can list tables, assume we have at least some useful access
                 has_create_table = True
               except Exception:
@@ -288,9 +289,7 @@ class AutoSetup:
             # If we can't check grants, try a simpler approach
             # Try to list tables as a proxy for having reasonable access
             try:
-              tables = list(
-                self.client.tables.list(catalog_name=catalog_name, schema_name=schema_name)
-              )
+              list(self.client.tables.list(catalog_name=catalog_name, schema_name=schema_name))
               # If we can list tables, assume we have reasonable access
               has_create_table = True
               has_manage = True  # Assume if we can list tables, we have good access
@@ -444,7 +443,7 @@ class AutoSetup:
           print(f"🔍 Verifying CREATE SCHEMA permission on '{manual_catalog}'...")
           try:
             # First check if we can list schemas (USE CATALOG)
-            schemas = list(self.client.schemas.list(catalog_name=manual_catalog))
+            list(self.client.schemas.list(catalog_name=manual_catalog))
             print(f"✅ Can list schemas in '{manual_catalog}' - USE CATALOG confirmed")
 
             # Then test CREATE SCHEMA permission
@@ -464,7 +463,8 @@ class AutoSetup:
           return None
 
     print(
-      f'Available catalogs (showing {len(available_catalogs)} with VERIFIED CREATE SCHEMA permissions):'
+      f'Available catalogs (showing {len(available_catalogs)} with VERIFIED '
+      f'CREATE SCHEMA permissions):'
     )
     catalog_list = list(available_catalogs.keys())
 
@@ -510,7 +510,7 @@ class AutoSetup:
                 print('❌ Catalog name cannot be empty')
                 continue
               try:
-                schemas = list(self.client.schemas.list(catalog_name=manual_catalog))
+                list(self.client.schemas.list(catalog_name=manual_catalog))
                 print(f"✅ Catalog '{manual_catalog}' is accessible")
                 return manual_catalog
               except Exception as e:
@@ -526,7 +526,7 @@ class AutoSetup:
           else:
             # Test the typed catalog name
             try:
-              schemas = list(self.client.schemas.list(catalog_name=choice))
+              list(self.client.schemas.list(catalog_name=choice))
               print(f"✅ Catalog '{choice}' is accessible")
               return choice
             except Exception as e:
@@ -563,15 +563,13 @@ class AutoSetup:
       if schema_name != suggested_schema:
         print(f'   {start_idx + i}. {schema_name} - {access_level}')
 
-    print(
-      f'   {len(schema_list) + (1 if suggested_schema in available_schemas else 0)}. Create new schema'
-    )
+    create_option_num = len(schema_list) + (1 if suggested_schema in available_schemas else 0)
+    print(f'   {create_option_num}. Create new schema')
 
     while True:
       try:
-        choice = input(
-          f'\nSelect schema (0-{len(schema_list) + (1 if suggested_schema in available_schemas else 0)}) or type schema name: '
-        ).strip()
+        max_choice = len(schema_list) + (1 if suggested_schema in available_schemas else 0)
+        choice = input(f'\nSelect schema (0-{max_choice}) or type schema name: ').strip()
 
         # Check if it's a number
         try:
@@ -592,9 +590,8 @@ class AutoSetup:
               print(f'💡 Will create new schema: {new_schema}')
               return new_schema
           else:
-            print(
-              f'❌ Please enter a number between 0 and {len(schema_list) + (1 if suggested_schema in available_schemas else 0)}'
-            )
+            max_choice = len(schema_list) + (1 if suggested_schema in available_schemas else 0)
+            print(f'❌ Please enter a number between 0 and {max_choice}')
             continue
         except ValueError:
           # User typed a schema name directly
@@ -821,7 +818,8 @@ class AutoSetup:
 
     if manageable_apps:
       print(
-        f'Apps you can manage (showing {len(manageable_apps)} with VERIFIED management permissions):'
+        f'Apps you can manage (showing {len(manageable_apps)} with VERIFIED '
+        f'management permissions):'
       )
 
       # Create a simple ordered list of all apps
@@ -1277,7 +1275,7 @@ class AutoSetup:
       # Create schema if needed
       if not schema_exists:
         try:
-          schema_info = self.resource_manager.create_schema_if_not_exists(catalog, schema)
+          self.resource_manager.create_schema_if_not_exists(catalog, schema)
           self.created_resources['schema'] = f'{catalog}.{schema}'
           print(f"✅ Created schema '{catalog}.{schema}'")
         except Exception as e:
@@ -1354,7 +1352,7 @@ class AutoSetup:
 
       print(f'📁 App source code path: {workspace_path}')
 
-      app = self.resource_manager.create_databricks_app(
+      self.resource_manager.create_databricks_app(
         name=app_name,
         description='MLflow demo application - automated setup',
         source_code_path=workspace_path,
@@ -1837,7 +1835,7 @@ class AutoSetup:
       from databricks.sdk import WorkspaceClient
 
       test_client = WorkspaceClient()
-      user_info = test_client.current_user.me()
+      test_client.current_user.me()
       current_auth_works = True
       # Try to determine current profile from workspace URL
       current_host = test_client.config.host

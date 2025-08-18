@@ -89,9 +89,9 @@ class EnvironmentDetector:
       prioritized.extend(sorted(catalog_names))
 
       self.detected_settings['available_catalogs'] = prioritized
-      print(
-        f'🔍 Found {len(prioritized)} available catalogs: {", ".join(prioritized[:3])}{"..." if len(prioritized) > 3 else ""}'
-      )
+      catalog_sample = ', '.join(prioritized[:3])
+      extra_text = '...' if len(prioritized) > 3 else ''
+      print(f'🔍 Found {len(prioritized)} available catalogs: {catalog_sample}{extra_text}')
       return prioritized
     except Exception as e:
       print(f'⚠️  Could not list catalogs: {e}')
@@ -123,9 +123,9 @@ class EnvironmentDetector:
       prioritized.extend(sorted(schema_names))
 
       self.detected_settings[f'available_schemas_{catalog_name}'] = prioritized
-      print(
-        f"🔍 Found {len(prioritized)} schemas in '{catalog_name}': {', '.join(prioritized[:3])}{'...' if len(prioritized) > 3 else ''}"
-      )
+      schema_sample = ', '.join(prioritized[:3])
+      extra_text = '...' if len(prioritized) > 3 else ''
+      print(f"🔍 Found {len(prioritized)} schemas in '{catalog_name}': {schema_sample}{extra_text}")
       return prioritized
     except Exception as e:
       print(f"⚠️  Could not list schemas in catalog '{catalog_name}': {e}")
@@ -201,7 +201,7 @@ class EnvironmentDetector:
 
     try:
       # Try to list tables in the schema (tests read permission)
-      tables = self.client.tables.list(catalog_name=catalog_name, schema_name=schema_name)
+      list(self.client.tables.list(catalog_name=catalog_name, schema_name=schema_name))
       permissions['can_read'] = True
 
       # Try to create a temporary table (tests write permission)
@@ -210,11 +210,9 @@ class EnvironmentDetector:
 
       # Check if we can see grants (suggests manage permission)
       try:
-        grants = self.client.grants.get(
-          securable_type='schema', full_name=f'{catalog_name}.{schema_name}'
-        )
+        self.client.grants.get(securable_type='schema', full_name=f'{catalog_name}.{schema_name}')
         permissions['can_manage'] = True
-      except:
+      except Exception:
         pass
 
     except Exception as e:

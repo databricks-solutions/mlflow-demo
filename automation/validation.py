@@ -225,7 +225,7 @@ class SetupValidator:
         ['databricks', 'auth', 'profiles'], capture_output=True, text=True, check=True
       )
       return 'No profiles found' not in result.stdout and result.stdout.strip()
-    except:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
       return False
 
   def _check_required_tools(self) -> List[str]:
@@ -236,7 +236,7 @@ class SetupValidator:
     for tool in tools:
       try:
         subprocess.run([tool, '--version'], capture_output=True, check=True)
-      except:
+      except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         missing.append(tool)
 
     return missing
@@ -246,7 +246,7 @@ class SetupValidator:
     try:
       self.client.current_user.me()
       return True
-    except:
+    except Exception:
       return False
 
   def _check_unity_catalog_access(self) -> bool:
@@ -254,7 +254,7 @@ class SetupValidator:
     try:
       list(self.client.catalogs.list())
       return True
-    except:
+    except Exception:
       return False
 
   def _check_mlflow_access(self) -> bool:
@@ -262,7 +262,7 @@ class SetupValidator:
     try:
       self.client.experiments.search_experiments()
       return True
-    except:
+    except Exception:
       return False
 
   def _check_apps_access(self) -> bool:
@@ -270,7 +270,7 @@ class SetupValidator:
     try:
       list(self.client.apps.list())
       return True
-    except:
+    except Exception:
       return False
 
   def _validate_experiment_exists(self, experiment_id: str) -> bool:
@@ -278,7 +278,7 @@ class SetupValidator:
     try:
       self.client.experiments.get_experiment(experiment_id)
       return True
-    except:
+    except Exception:
       return False
 
   def _validate_schema_access(self, catalog_name: str, schema_name: str) -> bool:
@@ -286,7 +286,7 @@ class SetupValidator:
     try:
       self.client.schemas.get(f'{catalog_name}.{schema_name}')
       return True
-    except:
+    except Exception:
       return False
 
   def _validate_app_exists(self, app_name: str) -> bool:
@@ -294,7 +294,7 @@ class SetupValidator:
     try:
       self.client.apps.get(app_name)
       return True
-    except:
+    except Exception:
       return False
 
   def _check_app_status(self, app_name: str) -> bool:
@@ -302,7 +302,7 @@ class SetupValidator:
     try:
       app = self.client.apps.get(app_name)
       return getattr(app, 'status', '').upper() == 'ACTIVE'
-    except:
+    except Exception:
       return False
 
   def _test_health_endpoint(self, app_url: str) -> bool:
@@ -311,7 +311,7 @@ class SetupValidator:
       health_url = f'{app_url.rstrip("/")}/api/health'
       response = requests.get(health_url, timeout=30)
       return response.status_code == 200
-    except:
+    except Exception:
       return False
 
   def _test_basic_functionality(self, app_url: str) -> bool:
@@ -326,7 +326,7 @@ class SetupValidator:
       # Check if we get expected data structure
       data = response.json()
       return isinstance(data, list) and len(data) > 0
-    except:
+    except Exception:
       return False
 
   def _test_prompt_registry_access(self, config: Dict[str, str]) -> bool:
@@ -340,10 +340,9 @@ class SetupValidator:
         return False
 
       # Try to access the prompt registry (simplified check)
-      full_name = f'{catalog}.{schema}.{prompt_name}'
       # This would require mlflow setup, so we'll just check schema access
       return self._validate_schema_access(catalog, schema)
-    except:
+    except Exception:
       return False
 
   def _test_mlflow_experiment_access(self, experiment_id: Optional[str]) -> bool:
@@ -355,7 +354,7 @@ class SetupValidator:
       # Try to get experiment details
       experiment = self.client.experiments.get_experiment(experiment_id)
       return experiment is not None
-    except:
+    except Exception:
       return False
 
   def _test_sample_data_scripts(self) -> bool:
@@ -376,7 +375,7 @@ class SetupValidator:
           return False
 
       return True
-    except:
+    except Exception:
       return False
 
   def generate_validation_report(self) -> str:
