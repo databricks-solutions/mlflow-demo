@@ -4,6 +4,24 @@
 
 set -e
 
+# Parse command line arguments
+SYNC_ONLY=false
+for arg in "$@"; do
+  case $arg in
+    --sync-only)
+      SYNC_ONLY=true
+      shift
+      ;;
+    *)
+      # Unknown option
+      echo "Unknown option: $arg"
+      echo "Usage: $0 [--sync-only]"
+      echo "  --sync-only    Sync notebooks only, skip app deployment"
+      exit 1
+      ;;
+  esac
+done
+
 # Load environment variables from .env.local if it exists.
 if [ -f .env.local ]
 then
@@ -210,6 +228,15 @@ fi
 databricks sync . "$LHA_SOURCE_CODE_PATH" \
   --profile "$DATABRICKS_CONFIG_PROFILE" \
   --exclude "*.gif"
+
+# Skip app deployment if --sync-only flag is set
+if [ "$SYNC_ONLY" = true ]; then
+  echo ""
+  echo "📓 Notebook sync completed (--sync-only mode)!"
+  echo "✅ Notebooks synced to workspace: $LHA_SOURCE_CODE_PATH"
+  echo ""
+  exit 0
+fi
 
 databricks apps deploy $DATABRICKS_APP_NAME \
   --source-code-path "$LHA_SOURCE_CODE_PATH"\

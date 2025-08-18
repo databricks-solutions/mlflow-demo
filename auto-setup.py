@@ -1379,6 +1379,21 @@ class AutoSetup:
       return True
 
     try:
+      # Generate workspace path for both deployment modes (moved from _create_app)
+      app_name = self.config.get('DATABRICKS_APP_NAME')
+      if app_name and 'LHA_SOURCE_CODE_PATH' not in self.config:
+        current_user = self.env_detector.get_current_user()
+        if current_user:
+          workspace_path = f'/Workspace/Users/{current_user}/{app_name}'
+          self.config['LHA_SOURCE_CODE_PATH'] = workspace_path
+        else:
+          # Fallback to shared workspace
+          workspace_path = f'/Workspace/Shared/{app_name}'
+          self.config['LHA_SOURCE_CODE_PATH'] = workspace_path
+          print('⚠️  Could not determine current user - using shared workspace path')
+        
+        print(f'📁 App source code path: {workspace_path}')
+
       # Debug: print current config
       print(f'📋 Current config: {self.config}')
 
@@ -1482,21 +1497,33 @@ class AutoSetup:
 
   def _deploy_app(self) -> bool:
     """Deploy the application."""
-    print('🚀 Deploying application...')
+    deployment_mode = self.config.get('DEPLOYMENT_MODE', 'full_deployment')
+    
+    if deployment_mode == 'notebook_only':
+      print('📓 Syncing notebooks to workspace...')
+    else:
+      print('🚀 Deploying application...')
 
     if self.dry_run:
       print('   [DRY RUN] Would deploy application')
       return True
 
     try:
-      # Run the deploy.sh script
-      result = subprocess.run(['./deploy.sh'], cwd=self.project_root, text=True)
+      # Choose deploy command based on deployment mode
+      if deployment_mode == 'notebook_only':
+        # Only sync notebooks, skip app deployment
+        result = subprocess.run(['./deploy.sh', '--sync-only'], cwd=self.project_root, text=True)
+        success_message = '✅ Notebooks synced to workspace successfully'
+      else:
+        # Full deployment including app
+        result = subprocess.run(['./deploy.sh'], cwd=self.project_root, text=True)
+        success_message = '✅ Application deployed successfully'
 
       if result.returncode != 0:
         print('❌ Deployment failed')
         return False
 
-      print('✅ Application deployed successfully')
+      print(success_message)
       return True
     except Exception as e:
       print(f'❌ Failed to deploy application: {e}')
@@ -1561,7 +1588,15 @@ class AutoSetup:
     return {}
 
   def _get_app_url(self, app_name: str) -> str:
-    """Generate the direct URL to the deployed Databricks App."""
+    """Get the URL of the deployed Databricks App."""
+    try:
+      app = self.client.apps.get(app_name)
+      if hasattr(app, 'url') and app.url:
+        return app.url
+    except Exception as e:
+      print(f"⚠️  Could not get app URL from API: {e}")
+    
+    # Fallback to constructed URL
     workspace_host = self.config.get('DATABRICKS_HOST', '').rstrip('/')
     return f"{workspace_host}/apps/{app_name}"
 
