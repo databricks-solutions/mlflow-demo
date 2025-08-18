@@ -150,6 +150,7 @@ def email_is_grounded(trace):
   This demonstrates how to wrap the proven is_grounded judge with custom data extraction.
   """
   import json
+  from mlflow.genai.judges import is_grounded, meets_guidelines
 
   # Extract the original request
   outputs = json.loads(trace.data.response)
