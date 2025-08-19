@@ -18,7 +18,7 @@ Choose your installation method:
 
 ### 🤖 Option A: Automated Setup (Recommended)
 
-**Estimated time: 5 minutes user input + 15 minutes waiting for scripts to run**
+**Estimated time: 2 minutes user input + 15 minutes waiting for scripts to run**
 
 The automated setup handles resource creation, configuration, and deployment for you using the Databricks Workspace SDK.
 
@@ -49,7 +49,7 @@ The `./auto-setup.sh` script will run all the steps outlined in the [Manual Setu
 
 ### 🔧 Option B: Manual Setup
 
-**Estimated time: 10 minutes work + 10 minutes waiting for scripts to run**
+**Estimated time: 10 minutes work + 15 minutes waiting for scripts to run**
 
 For step-by-step manual installation instructions, see **[MANUAL_SETUP.md](MANUAL_SETUP.md)**.
 
