@@ -31,10 +31,11 @@ The automated setup handles resource creation, configuration, and deployment for
 The `./auto-setup.sh` script will run all the steps outlined in the [Manual Setup](#-option-b-manual-setup) workflow.
 
 
-- [ ] **1. Install the Databricks CLI**
+- [ ] **1. Install the Databricks CLI >= 0.262.0**
   - Follow the [installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
   - Verify installation: Run `databricks --version` to confirm it's installed
-- [ ] **2. Authenticate with your workspace**
+- [ ] **2. Install Python >= 3.10.16**
+- [ ] **3. Authenticate with your workspace**
   - Run `databricks auth login` and follow the prompts
   - Configure a profile named `DEFAULT`
 - [ ] **3. Clone repo and run setup script**
