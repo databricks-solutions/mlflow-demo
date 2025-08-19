@@ -1,3 +1,5 @@
+"""Script to generate notebook URLs for the MLflow demo application."""
+
 import os
 import sys
 from pathlib import Path
@@ -6,12 +8,12 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import dotenv
+# Import after sys.path modification
+import dotenv  # noqa: E402
+from databricks.sdk import WorkspaceClient  # noqa: E402
 
 # Load environment variables from .env.local in project root
 dotenv.load_dotenv(project_root / '.env.local')
-
-from databricks.sdk import WorkspaceClient
 
 w = WorkspaceClient()
 
@@ -39,6 +41,7 @@ def get_notebook_url(name: str) -> str:
 
 
 notebooks = [
+  '0_demo_overview',
   '1_observe_with_traces',
   '2_create_quality_metrics',
   '3_find_fix_quality_issues',

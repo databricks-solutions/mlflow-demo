@@ -9,12 +9,36 @@ def setup_local_ide_env():
 
   Loads environment variables from .env.local and adds parent directory to path.
   """
+  import os
   import sys
 
   from dotenv import load_dotenv
 
-  # Load environment variables from .env.local
-  load_dotenv('.env.local')
+  # Try to find .env.local in various locations
+  env_paths = [
+    '../../.env.local',  # From notebooks/ directory to project root
+    '../.env.local',  # From mlflow_demo/ directory
+    '.env.local',  # Current directory
+    './.env.local',  # Explicit current directory
+  ]
+
+  env_loaded = False
+  for env_path in env_paths:
+    if os.path.exists(env_path):
+      load_dotenv(env_path)
+      env_loaded = True
+      break
+
+  if not env_loaded:
+    # Try to find project root and load from there
+    current_dir = os.getcwd()
+    while current_dir != '/':
+      env_file = os.path.join(current_dir, '.env.local')
+      if os.path.exists(env_file):
+        load_dotenv(env_file)
+        env_loaded = True
+        break
+      current_dir = os.path.dirname(current_dir)
 
   sys.path.append('../')
 
