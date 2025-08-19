@@ -301,14 +301,14 @@ class SetupValidator:
     """Check if app is in ACTIVE/RUNNING status."""
     try:
       app = self.client.apps.get(app_name)
-      
+
       # Check app_status attribute which contains the ApplicationStatus
       if hasattr(app, 'app_status') and app.app_status:
         if hasattr(app.app_status, 'state'):
           state_str = str(app.app_status.state).upper()
           # Accept both RUNNING and ACTIVE states as ready
           return 'RUNNING' in state_str or 'ACTIVE' in state_str
-      
+
       # Fallback: check if app has URL (indicates it's deployed)
       return bool(getattr(app, 'url', None))
     except Exception:
@@ -429,21 +429,21 @@ class SetupValidator:
     while time.time() - start_time < timeout_seconds:
       try:
         app = self.client.apps.get(app_name)
-        
+
         # Get the actual status from app_status.state
-        status_display = "unknown"
+        status_display = 'unknown'
         is_ready = False
-        
+
         if hasattr(app, 'app_status') and app.app_status:
           if hasattr(app.app_status, 'state'):
             status_display = str(app.app_status.state)
             state_str = status_display.upper()
             is_ready = 'RUNNING' in state_str or 'ACTIVE' in state_str
-        
+
         # Also check if app has URL as additional confirmation
         app_url = getattr(app, 'url', None)
         has_url = bool(app_url)
-        
+
         if is_ready and has_url:
           print(f"✅ App '{app_name}' is ready and has URL")
           return True
