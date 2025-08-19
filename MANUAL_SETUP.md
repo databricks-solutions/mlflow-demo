@@ -1,6 +1,8 @@
 # Manual Setup Guide
 
-**Estimated time: 15 minutes work + 15 minutes waiting for scripts to run**
+**Estimated time:**
+- **Full App Deployment**: 15-20 minutes work + 15 minutes waiting for scripts to run
+- **Notebook-Only**: 10-15 minutes work + 15 minutes waiting for scripts to run
 
 ## 🔧 Phase 1: Prerequisites Setup
 
@@ -12,27 +14,21 @@
   - If you don't have one, [create a workspace here](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=email_demo_github)
   - Verify access by logging into your workspace
 
-### 1.2 Databricks App Setup
-
-- [ ] **Create a new Databricks App** using the custom app template
-  - Follow the [Databricks Apps getting started guide](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/get-started)
-  - **Important**: Note down the app name and workspace directory (you'll need these for `setup.sh`)
-
-### 1.3 Create MLflow Experiment
+### 1.2 Create MLflow Experiment
 
 - [ ] **Create a new MLflow Experiment** in your workspace
 - [ ] **Complete IDE setup** to get API credentials
   - Follow the [IDE setup guide](https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/connect-environment)
   - You'll need these credentials for `setup.sh`
 
-### 1.4 Unity Catalog Schema
+### 1.3 Unity Catalog Schema
 
 - [ ] **Create or select a Unity Catalog schema** with proper permissions
   - You need **ALL** and **MANAGE** permissions on the schema
   - See [Unity Catalog schema documentation](https://docs.databricks.com/aws/en/schemas/create-schema)
   - **Quick option**: If you created a workspace in step 1.1, you can use the `workspace.default` schema
 
-### 1.5 Install & Connect Databricks CLI
+### 1.4 Install & Connect Databricks CLI
 
 - [ ] **Install the Databricks CLI**
   - Follow the [installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
@@ -45,20 +41,88 @@
 Before proceeding to Phase 2, verify you have:
 
 - [ ] Access to a Databricks workspace
-- [ ] A Databricks App created with name/directory noted
 - [ ] An MLflow experiment and API credentials
 - [ ] A Unity Catalog schema with proper permissions
 - [ ] Databricks CLI installed and authenticated
 
 ---
 
-## 🚀 Phase 2: Installation & Local Testing
+## 🚀 Phase 2: Choose Your Experience
 
-> ⚠️ **STOP**: Only proceed if you've completed ALL items in Phase 1 above.
+> ⚠️ **IMPORTANT**: Choose your deployment mode before proceeding. This determines which steps you'll follow.
+
+Both options include the complete MLflow evaluation setup:
+• MLflow Experiment with sample traces, evaluation runs, prompts, and production monitoring
+• Sales email generation code with sample data
+• Interactive Notebooks that walk you through using MLflow to improve GenAI quality
+
+**Choose how you want to interact with the demo:**
+
+### Option 1: 📱 Full Databricks App (Recommended)
+- **Best for**: Workspaces where Databricks Apps are enabled
+- **What you get**:
+  - User-friendly web UI for exploring workflows
+  - Interactive demo UI to try the sample app
+  - All notebooks for deeper exploration
+- **Requirements**: Databricks Apps enabled in your workspace
+- **Continue to**: Phase 3.1 (Full App Setup)
+
+### Option 2: 📓 Notebooks Only
+- **Best for**: Workspaces where Databricks Apps are restricted/disabled
+- **What you get**:
+  - Step-by-step interactive notebooks for learning
+  - All MLflow evaluation features
+  - Complete demo functionality via notebooks
+- **Requirements**: Basic workspace access
+- **Continue to**: Phase 3.2 (Notebook-Only Setup)
+
+---
+
+## ⚙️ Phase 3: Setup & Configuration
+
+### 3.1 Full App Setup Path
+
+> ⚠️ **Only follow this section if you chose Option 1 (Full Databricks App) above**
+
+#### 3.1.1 Create Databricks App
+
+- [ ] **Create a new Databricks App** using the custom app template
+  - Follow the [Databricks Apps getting started guide](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/get-started)
+  - **Important**: Note down the app name and workspace directory (you'll need these for `setup.sh`)
+
+**Continue to Phase 4: Environment Setup**
+
+### 3.2 Notebook-Only Setup Path
+
+> ⚠️ **Only follow this section if you chose Option 2 (Notebooks Only) above**
+
+#### 3.2.1 Choose Workspace Location
+
+- [ ] **Decide on notebook location**: `/Workspace/Users/[your-email]/mlflow-demo/`
+- [ ] **No app creation needed** - notebooks will be synced directly to your workspace
+
+#### 3.2.2 MLflow Experiment Ready
+
+- [ ] **✅ MLflow experiment already created** in Phase 1 prerequisites
+- [ ] **✅ API credentials already configured** for setup script
+
+#### 3.2.3 Skip App-Specific Steps
+
+- [ ] ✅ No Databricks App to create
+- [ ] ✅ No app permissions to configure
+- [ ] ✅ Simplified deployment process
+
+**Continue to Phase 4: Environment Setup**
+
+---
+
+## 🔧 Phase 4: Environment Setup
+
+> ⚠️ **STOP**: Only proceed if you've completed Phase 3 for your chosen deployment mode.
 
 Run these commands in order from the project root directory:
 
-### 2.1 Setup Environment & Configure Environment Variables
+### 4.1 Setup Environment & Configure Environment Variables
 
 ```bash
 ./setup.sh
@@ -67,22 +131,29 @@ Run these commands in order from the project root directory:
 **What this script does:**
 1. **Checks prerequisites** - Validates Python ≥3.10.16, uv, Databricks CLI ≥0.262.0, and bun
 2. **Installs missing tools** - Automatically installs uv and bun if not present (asks for confirmation first)
-3. **Configures environment** - Prompts you for all the information from Phase 1
+3. **Configures environment** - Prompts you for deployment mode and configuration
 4. **Installs dependencies** - Sets up Python packages with uv and frontend packages with bun
 
-- Have your app name, workspace directory, experiment ID, and schema name ready
-- The script will show you what's missing and ask before installing anything
+**What the script will ask for:**
+- Your deployment mode choice (full app vs notebook-only)
+- App name (if full deployment) or workspace path (if notebook-only)
+- MLflow experiment ID (from Phase 1 prerequisites)
+- Unity Catalog schema information
+- LLM model selection
 
-### 2.2 Load Sample Data
+### 4.2 Load Sample Data
 
 ```bash
 ./load_sample_data.sh
 ```
 
-- Creates evaluation datasets in your MLflow experiment
-- Loads sample customer data for the demo
+**Both deployment modes get:**
+- ✅ MLflow experiment with sample data
+- ✅ Evaluation datasets and prompts
+- ✅ Trace examples and monitoring setup
+- ✅ Sample customer data for the demo
 
-### 2.3 Test Local Development Server
+### 4.3 Test Local Development Server
 
 ```bash
 ./watch.sh
@@ -92,9 +163,9 @@ Run these commands in order from the project root directory:
 - Visit `http://localhost:8000` to verify the demo works locally
 - **Success criteria**: You should see the email generation interface and be able to generate emails
 
-### ✅ Local Testing Checkpoint
+### ✅ Environment Setup Checkpoint
 
-Verify your local setup:
+Verify your setup:
 
 - [ ] Environment variables configured successfully
 - [ ] Sample data loaded without errors
@@ -103,31 +174,35 @@ Verify your local setup:
 
 ---
 
-## 🌐 Phase 3: Deployment to Databricks Apps
+## 🚀 Phase 5: Deployment
 
-> ⚠️ **STOP**: Only proceed if Phase 2 completed successfully and you can generate emails locally.
+> ⚠️ **STOP**: Only proceed if Phase 4 completed successfully and you can generate emails locally.
 
-### 3.1 Configure App Permissions
+### 5.1 Deploy Based on Your Mode
 
-Your Databricks App needs specific permissions to access the the MLflow experiment and other resources in you created in the first steps.
+#### For Full App Deployment:
 
-#### Get Your App's Service Principal
+> ⚠️ **Only follow this section if you chose Full Databricks App in Phase 2**
+
+##### Configure App Permissions (Before Deployment)
+
+Your Databricks App needs specific permissions to access the MLflow experiment and other resources.
+
+**Get Your App's Service Principal:**
 
 1. Go to your Databricks workspace → Compute → Apps
 2. Find your app and click on it
 3. Go to the **Authorization** tab
 4. **Copy the service principal name** (you'll need this for the next steps)
 
-#### Grant Required Permissions
+**Grant Required Permissions:**
 
 **MLflow Experiment Access:**
-
 - [ ] Go to your MLflow experiment → Permissions tab
 - [ ] Grant **CAN MANAGE** (or higher) to your app's service principal
 - [ ] This enables tracing and demo functionality
 
 **Unity Catalog Schema Access:**
-
 - [ ] Go to your Unity Catalog schema → Permissions tab
 - [ ] Grant **ALL PERMISSIONS** to your app's service principal
 - [ ] Grant **MANAGE** to your app's service principal
@@ -135,61 +210,113 @@ Your Databricks App needs specific permissions to access the the MLflow experime
 - [ ] This enables the prompt registry functionality
 
 **Model Serving Endpoint Access:**
-
-- [ ] Go the Databricks App
+- [ ] Go to the Databricks App
 - [ ] Click on **Edit**
 - [ ] Click **Next**
 - [ ] Click **Add Resource** and choose **Serving Endpoint**
-- [ ] Select your model serving endpoint (`databricks-claude-3-7-sonnet` unless you changed the model during the step above)
+- [ ] Select your model serving endpoint (`databricks-claude-3-7-sonnet` unless you changed the model)
 - [ ] Press **Save**
 - [ ] This allows the app to call the LLM for email generation
 
-### 3.2 Deploy the Application
+##### Deploy the App
 
 ```bash
 ./deploy.sh
 ```
 
 **This script will:**
-
 - Package your application code
 - Upload it to your Databricks App
 - Configure the necessary environment variables
 - Start the app in your Databricks workspace
 
-### 3.3 Verify Deployment
+#### For Notebook-Only Deployment:
+
+> ⚠️ **Only follow this section if you chose Notebooks Only in Phase 2**
+
+##### Sync Notebooks to Workspace
+
+```bash
+./deploy.sh --sync-only
+```
+
+**This script will:**
+- Sync notebooks to your workspace location
+- Skip app deployment steps
+- Provide direct notebook URLs for easy access
+- Configure MLflow experiment automatically
+
+### 5.2 Verify Your Deployment
+
+#### Full App Success:
 
 After deployment completes:
-
-- [ ] Check that your app shows as **ACTIVE** in Databricks Apps
+- [ ] Check that your app shows as **ACTIVE** in Databricks Apps console
 - [ ] Visit your app URL (provided in deploy script output)
-- [ ] Test email generation functionality
+- [ ] Test email generation functionality in the web interface
 - [ ] Verify that traces appear in your MLflow experiment
 
-### ✅ Deployment Success
+#### Notebook-Only Success:
 
-Your demo is now live! You should be able to:
+After sync completes:
+- [ ] Notebooks are visible in your workspace at `/Workspace/Users/[your-email]/mlflow-demo/`
+- [ ] Demo overview notebook opens correctly
+- [ ] Can run notebook cells successfully
+- [ ] MLflow experiment contains sample data
 
+---
+
+## 🎉 You're Ready!
+
+### Full App Experience:
+
+Your app is live! You should be able to:
 - [ ] Access the app via the Databricks Apps URL
 - [ ] Generate emails using the deployed application
 - [ ] See traces and experiments in MLflow
 - [ ] Use all demo features (prompt registry, evaluation, etc.)
+- [ ] Explore the interactive web interface
+
+**🎯 Your App URL**: Check the deploy script output for the direct link
+
+### Notebook-Only Experience:
+
+Your demo is ready! You should be able to:
+- [ ] Access notebooks in your workspace
+- [ ] Follow the step-by-step interactive guide
+- [ ] Learn MLflow evaluation workflows
+- [ ] Explore all demo features via notebooks
+- [ ] Run your own experiments using the provided examples
+
+**🎯 Start Here**: `/Workspace/Users/[your-email]/mlflow-demo/notebooks/0_demo_overview.ipynb`
 
 ---
 
 ## 🆘 Troubleshooting
 
-**Permission Issues:**
+### Common Issues by Deployment Mode
 
-- Verify your app's service principal has all required permissions
-- Check that you're using the correct schema name in your environment config
+**Full App Deployment Issues:**
+- **Permission Issues**: Verify your app's service principal has all required permissions
+- **App Not Starting**: Check that your app was created successfully in Databricks Apps
+- **Deployment Fails**: Review the deploy script output for specific error messages
+- **Model Access**: Ensure your app has access to the selected LLM serving endpoint
 
-**Local Development Issues:**
+**Notebook-Only Issues:**
+- **Notebooks Not Syncing**: Verify your workspace path permissions
+- **MLflow Not Working**: Check that your experiment was created successfully
+- **Cells Not Running**: Ensure your Databricks CLI is authenticated properly
 
-- Ensure all prerequisites are completed before running installation commands
-- Check that your Databricks CLI is authenticated: `databricks auth login`
+**General Issues:**
+- **Environment Setup**: Check that you're using the correct schema name in your config
+- **Local Development**: Ensure all prerequisites are completed before running commands
+- **Authentication**: Verify CLI authentication: `databricks auth login`
+- **Dependencies**: If dependencies fail, try running `uv sync` and `bun install` manually
 
-**Deployment Issues:**
+### Getting Help
 
-- Verify your app was created successfully in Databricks Apps
-- Check the deploy script output for specific error messages
+If you continue to experience issues:
+1. Check the specific error messages in the script output
+2. Verify all prerequisites are met for your chosen deployment mode
+3. Ensure your Databricks workspace has the required features enabled
+4. Try the automated setup: `python auto-setup.py` for a guided experience
