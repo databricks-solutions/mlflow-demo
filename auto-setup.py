@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound, PermissionDenied
@@ -315,7 +315,6 @@ class AutoSetup:
       print(f'⚠️  Could not list schemas in {catalog_name}: {e}')
 
     return available_schemas
-
 
   def _prompt_for_catalog_selection(self, suggested_catalog: str = None) -> str:
     """Interactive catalog selection with permission checking."""
@@ -616,7 +615,9 @@ class AutoSetup:
     print('\n🚀 Choose Your Interface')
     print('')
     print('Both options include the complete MLflow evaluation setup:')
-    print('• MLflow Experiment with sample traces, evaluation runs, prompts, and production monitoring')
+    print(
+      '• MLflow Experiment with sample traces, evaluation runs, prompts, and production monitoring'
+    )
     print('• Sales email generation code with sample data')
     print('• Interactive Notebooks that walk you through using MLflow to improve GenAI quality')
     print('')
@@ -628,7 +629,7 @@ class AutoSetup:
     print('      • Include all the notebooks for deeper exploration')
     print('')
     print('   2. 📓 Notebooks Only')
-    print('      • Best option if you can\'t deploy Databricks Apps in your workspace')
+    print("      • Best option if you can't deploy Databricks Apps in your workspace")
     print('      • Use the notebooks to understand how MLflow helps you improve GenAI quality')
     print('')
 
@@ -714,10 +715,10 @@ class AutoSetup:
       except KeyboardInterrupt:
         return suggested_model or available_models[0]
 
-
   def _generate_default_app_name(self) -> str:
     """Generate a default app name with 4 random characters."""
     import os
+
     # Generate 4 random hex characters
     random_chars = os.urandom(2).hex()  # 2 bytes = 4 hex chars
     return f'mlflow-demo-app-{random_chars}'
@@ -1054,128 +1055,135 @@ class AutoSetup:
     print('📋 INSTALLATION PREVIEW')
     print('=' * 60)
     print('\nThe following resources will be created/configured:')
-    
+
     deployment_mode = self.config.get('DEPLOYMENT_MODE', 'full_deployment')
-    
+
     # Workspace and authentication
-    print(f"\n🏢 Workspace: {self.config.get('DATABRICKS_HOST', 'Unknown')}")
-    
+    print(f'\n🏢 Workspace: {self.config.get("DATABRICKS_HOST", "Unknown")}')
+
     # Unity Catalog resources
     catalog = self.config.get('UC_CATALOG', 'Unknown')
     schema = self.config.get('UC_SCHEMA', 'Unknown')
-    print(f"📁 Unity Catalog: {catalog}.{schema}")
+    print(f'📁 Unity Catalog: {catalog}.{schema}')
     print(f"   • Will create catalog '{catalog}' if it doesn't exist")
     print(f"   • Will create schema '{schema}' if it doesn't exist")
-    
+
     # MLflow experiment
     app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
-    experiment_path = f"/Shared/{app_name}"
-    print(f"🧪 MLflow Experiment: {experiment_path}")
-    
+    experiment_path = f'/Shared/{app_name}'
+    print(f'🧪 MLflow Experiment: {experiment_path}')
+
     # Deployment mode specific resources
     if deployment_mode == 'full_deployment':
-        print(f"📱 Databricks App: {app_name}")
-        print(f"   • Will create/update app '{app_name}'")
-        print(f"   • Will deploy web application to the app")
-        print(f"   • Will configure app permissions for service principal")
+      print(f'📱 Databricks App: {app_name}')
+      print(f"   • Will create/update app '{app_name}'")
+      print('   • Will deploy web application to the app')
+      print('   • Will configure app permissions for service principal')
     else:
-        print(f"📓 Notebook-Only Mode: {app_name}")
-        # Try to get the actual current user
-        try:
-            current_user = self.env_detector.get_current_user() if self.env_detector else None
-            if current_user:
-                user_path = f"/Workspace/Users/{current_user}/{app_name}"
-            else:
-                user_path = f"/Workspace/Users/[user]/{app_name}"
-        except Exception:
-            user_path = f"/Workspace/Users/[user]/{app_name}"
-        print(f"   • Will sync notebooks to workspace at {user_path}")
-    
+      print(f'📓 Notebook-Only Mode: {app_name}')
+      # Try to get the actual current user
+      try:
+        current_user = self.env_detector.get_current_user() if self.env_detector else None
+        if current_user:
+          user_path = f'/Workspace/Users/{current_user}/{app_name}'
+        else:
+          user_path = f'/Workspace/Users/[user]/{app_name}'
+      except Exception:
+        user_path = f'/Workspace/Users/[user]/{app_name}'
+      print(f'   • Will sync notebooks to workspace at {user_path}')
+
     # LLM model
     llm_model = self.config.get('LLM_MODEL', 'Unknown')
-    print(f"🤖 LLM Model: {llm_model}")
-    
+    print(f'🤖 LLM Model: {llm_model}')
+
     # Sample data
-    print(f"\n📊 Sample Data Setup:")
-    print(f"   • Load prompt templates into MLflow")
-    print(f"   • Generate sample traces, evaluations, and labeling sessions")
-    print(f"   • Configure production monitoring")
-    
+    print('\n📊 Sample Data Setup:')
+    print('   • Load prompt templates into MLflow')
+    print('   • Generate sample traces, evaluations, and labeling sessions')
+    print('   • Configure production monitoring')
+
     # Permissions (only for full deployment mode)
     if deployment_mode == 'full_deployment':
-        print(f"\n🔐 Permissions (for app service principal):")
-        print(f"   • USE CATALOG on '{catalog}'")
-        print(f"   • ALL_PRIVILEGES + MANAGE on '{catalog}.{schema}'")
-        print(f"   • CAN_MANAGE on MLflow experiment")
-        print(f"   • CAN_QUERY on model serving endpoint '{llm_model}'")
-    
+      print('\n🔐 Permissions (for app service principal):')
+      print(f"   • USE CATALOG on '{catalog}'")
+      print(f"   • ALL_PRIVILEGES + MANAGE on '{catalog}.{schema}'")
+      print('   • CAN_MANAGE on MLflow experiment')
+      print(f"   • CAN_QUERY on model serving endpoint '{llm_model}'")
+
     if self.dry_run:
       print('\n🏃 DRY RUN MODE: No actual resources will be created')
       return True
-    
+
     print('\n' + '=' * 60)
-    
+
     # Get user confirmation
     while True:
-        try:
-            choice = input('\n❓ Proceed with installation? (Y/n/details): ').strip().lower()
-            
-            if choice in ['', 'y', 'yes']:
-                print('✅ Starting installation...')
-                return True
-            elif choice in ['n', 'no']:
-                print('❌ Installation cancelled by user')
-                return False
-            elif choice in ['d', 'details']:
-                self._show_detailed_preview()
-                continue
-            else:
-                print('❌ Please enter Y (yes), N (no), or D (details)')
-                continue
-                
-        except KeyboardInterrupt:
-            print('\n❌ Installation cancelled by user')
-            return False
+      try:
+        choice = input('\n❓ Proceed with installation? (Y/n/details): ').strip().lower()
+
+        if choice in ['', 'y', 'yes']:
+          print('✅ Starting installation...')
+          return True
+        elif choice in ['n', 'no']:
+          print('❌ Installation cancelled by user')
+          return False
+        elif choice in ['d', 'details']:
+          self._show_detailed_preview()
+          continue
+        else:
+          print('❌ Please enter Y (yes), N (no), or D (details)')
+          continue
+
+      except KeyboardInterrupt:
+        print('\n❌ Installation cancelled by user')
+        return False
 
   def _show_detailed_preview(self):
     """Show detailed information about what will be created."""
     print('\n' + '=' * 60)
     print('📋 DETAILED PREVIEW')
     print('=' * 60)
-    
+
     print('\n🔧 Configuration Details:')
     for key, value in sorted(self.config.items()):
-        if key in ['DATABRICKS_HOST', 'UC_CATALOG', 'UC_SCHEMA', 'DATABRICKS_APP_NAME', 
-                  'LLM_MODEL', 'DEPLOYMENT_MODE', 'CUSTOM_EXPERIMENT_PATH']:
-            print(f'   {key}: {value}')
-    
+      if key in [
+        'DATABRICKS_HOST',
+        'UC_CATALOG',
+        'UC_SCHEMA',
+        'DATABRICKS_APP_NAME',
+        'LLM_MODEL',
+        'DEPLOYMENT_MODE',
+        'CUSTOM_EXPERIMENT_PATH',
+      ]:
+        print(f'   {key}: {value}')
+
     print('\n📂 Directory Structure (will be created):')
     app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
     print(f'   /Workspace/Users/[your-username]/{app_name}/')
-    print(f'   ├── mlflow_demo/')
-    print(f'   │   ├── notebooks/')
-    print(f'   │   │   ├── 0_demo_overview.ipynb')
-    print(f'   │   │   ├── 1_observe_with_traces.ipynb') 
-    print(f'   │   │   └── [other demo notebooks]')
-    print(f'   │   └── [application source code]')
-    
+    print('   ├── mlflow_demo/')
+    print('   │   ├── notebooks/')
+    print('   │   │   ├── 0_demo_overview.ipynb')
+    print('   │   │   ├── 1_observe_with_traces.ipynb')
+    print('   │   │   └── [other demo notebooks]')
+    print('   │   └── [application source code]')
+
     deployment_mode = self.config.get('DEPLOYMENT_MODE', 'full_deployment')
     if deployment_mode == 'full_deployment':
-        print(f'\n🚀 Deployment Process:')
-        print(f'   1. Create Databricks App: {app_name}')
-        print(f'   2. Upload source code to workspace')
-        print(f'   3. Deploy application using ./deploy.sh')
-        print(f'   4. Configure service principal permissions')
-        print(f'   5. Start and validate deployment')
-    
+      print('\n🚀 Deployment Process:')
+      print(f'   1. Create Databricks App: {app_name}')
+      print('   2. Upload source code to workspace')
+      print('   3. Deploy application using ./deploy.sh')
+      print('   4. Configure service principal permissions')
+      print('   5. Start and validate deployment')
+
     print('\n💡 After installation, you will receive:')
     if deployment_mode == 'full_deployment':
-        print(f'   • Direct link to deployed application')
-        print(f'   • Access to interactive demo interface')
+      print('   • Direct link to deployed application')
+      print('   • Access to interactive demo interface')
     else:
-        print(f'   • Link to demo overview notebook in your workspace')
-        print(f'   • Path to all notebooks for learning MLflow evaluation')
-    print(f'   • MLflow experiment with sample data for exploration')
+      print('   • Link to demo overview notebook in your workspace')
+      print('   • Path to all notebooks for learning MLflow evaluation')
+    print('   • MLflow experiment with sample data for exploration')
 
   def _create_catalog_schema(self) -> bool:
     """Create catalog and schema if needed."""
@@ -1390,7 +1398,7 @@ class AutoSetup:
           workspace_path = f'/Workspace/Shared/{app_name}'
           self.config['LHA_SOURCE_CODE_PATH'] = workspace_path
           print('⚠️  Could not determine current user - using shared workspace path')
-        
+
         print(f'📁 App source code path: {workspace_path}')
 
       # Debug: print current config
@@ -1463,10 +1471,7 @@ class AutoSetup:
 
       # Run the shell script and stream output
       result = subprocess.run(
-        ['./load_sample_data.sh'],
-        cwd=self.project_root,
-        env=os.environ.copy(),
-        text=True
+        ['./load_sample_data.sh'], cwd=self.project_root, env=os.environ.copy(), text=True
       )
 
       return result.returncode == 0
@@ -1497,7 +1502,7 @@ class AutoSetup:
   def _deploy_app(self) -> bool:
     """Deploy the application."""
     deployment_mode = self.config.get('DEPLOYMENT_MODE', 'full_deployment')
-    
+
     if deployment_mode == 'notebook_only':
       print('📓 Syncing notebooks to workspace...')
     else:
@@ -1593,18 +1598,20 @@ class AutoSetup:
       if hasattr(app, 'url') and app.url:
         return app.url
     except Exception as e:
-      print(f"⚠️  Could not get app URL from API: {e}")
-    
+      print(f'⚠️  Could not get app URL from API: {e}')
+
     # Fallback to constructed URL
     workspace_host = self.config.get('DATABRICKS_HOST', '').rstrip('/')
-    return f"{workspace_host}/apps/{app_name}"
+    return f'{workspace_host}/apps/{app_name}'
 
   def _get_notebook_url(self, notebook_name: str) -> str:
     """Generate the direct URL to a notebook in the Databricks workspace."""
     workspace_host = self._ensure_https_protocol(self.config.get('DATABRICKS_HOST', '')).rstrip('/')
     lha_source_code_path = self.config.get('LHA_SOURCE_CODE_PATH')
-    
-    for i in self.client.workspace.list(f'{lha_source_code_path}/mlflow_demo/notebooks', recursive=True):
+
+    for i in self.client.workspace.list(
+      f'{lha_source_code_path}/mlflow_demo/notebooks', recursive=True
+    ):
       if i.path and i.path.endswith(notebook_name):
         return f'{workspace_host}/editor/notebooks/{i.resource_id}'
     return 'NOT FOUND'
@@ -1622,7 +1629,7 @@ class AutoSetup:
   def _get_experiment_url(self, experiment_id: str) -> str:
     """Generate the direct URL to the MLflow experiment."""
     workspace_host = self.config.get('DATABRICKS_HOST', '').rstrip('/')
-    return f"{workspace_host}/#mlflow/experiments/{experiment_id}"
+    return f'{workspace_host}/#mlflow/experiments/{experiment_id}'
 
   def _show_final_results(self, success: bool):
     """Show final setup results."""
@@ -1632,25 +1639,25 @@ class AutoSetup:
 
     if success:
       print('\n✅ Your MLflow demo environment is ready to use!')
-      
+
       deployment_mode = self.config.get('DEPLOYMENT_MODE', 'full_deployment')
       workspace_host = self.config.get('DATABRICKS_HOST', '').rstrip('/')
-      
+
       # Show the primary access URL prominently
       print('\n🔗 YOUR PRIMARY ACCESS LINK:')
       print('=' * 40)
-      
+
       if deployment_mode == 'full_deployment':
         app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
         app_url = self._get_app_url(app_name)
         print(f'📱 Databricks App: {app_url}')
-        print(f'   ↳ Interactive demo application ready to use')
+        print('   ↳ Interactive demo application ready to use')
       else:
         workspace_path = self.config.get('LHA_SOURCE_CODE_PATH', '/Workspace/...')
         notebook_url = self._get_notebook_url('0_demo_overview')
         print(f'📓 Demo Overview Notebook: {notebook_url}')
-        print(f'   ↳ Start here for interactive learning experience')
-      
+        print('   ↳ Start here for interactive learning experience')
+
       print('\n📋 Resources Created:')
       print('-' * 30)
 
@@ -1663,13 +1670,13 @@ class AutoSetup:
       if 'UC_CATALOG' in self.config and 'UC_SCHEMA' in self.config:
         catalog = self.config['UC_CATALOG']
         schema = self.config['UC_SCHEMA']
-        catalog_url = f"{workspace_host}/#unitycatalog/catalogs/{catalog}/schemas/{schema}"
+        catalog_url = f'{workspace_host}/#unitycatalog/catalogs/{catalog}/schemas/{schema}'
         print(f'📁 Unity Catalog Schema: {catalog_url}')
         print(f'   ↳ {catalog}.{schema}')
 
       if deployment_mode == 'full_deployment':
         app_name = self.config.get('DATABRICKS_APP_NAME', 'mlflow_demo_app')
-        apps_url = f"{workspace_host}/#apps"
+        apps_url = f'{workspace_host}/#apps'
         print(f'📱 Databricks Apps Console: {apps_url}')
         print(f'   ↳ Manage app: {app_name}')
 
@@ -1689,7 +1696,7 @@ class AutoSetup:
       else:
         print('1. 🎯 Click the Databricks App link above')
         print('2. 🧪 Try the email generation demo')
-        print('3. 📝 Submit feedback to see MLflow tracing in action') 
+        print('3. 📝 Submit feedback to see MLflow tracing in action')
         print('4. 📊 Explore the MLflow experiment for evaluation data')
         print('5. 📂 Check out the workspace notebooks for deeper learning')
 
@@ -1709,7 +1716,7 @@ class AutoSetup:
         print('   ↳ Follow the step-by-step interactive guide')
         print('   ↳ Learn how to use MLflow to improve GenAI quality')
         print('\n' + '=' * 80)
-      
+
       # For full deployment mode, show the app URL prominently
       elif deployment_mode == 'full_deployment':
         print('\n\n' + '=' * 80)
@@ -1734,7 +1741,6 @@ class AutoSetup:
       failed_steps = self.progress.get_failed_steps()
       if failed_steps:
         print(f'\n❌ Failed steps: {", ".join(failed_steps)}')
-
 
   def _get_timestamp(self) -> str:
     """Get current timestamp string."""
@@ -1960,7 +1966,6 @@ def main():
 
   # Initialize setup
   auto_setup = AutoSetup(dry_run=args.dry_run)
-
 
   if args.validate_only:
     # Only run validation
