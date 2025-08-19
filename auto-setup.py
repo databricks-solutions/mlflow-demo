@@ -1726,8 +1726,8 @@ class AutoSetup:
     else:
       print('❌ Setup failed or was interrupted')
       print('\n🔧 Troubleshooting:')
-      print("   • Run 'python auto-setup.py --resume' to continue from where you left off")
-      print("   • Check the progress with 'python auto-setup.py --status'")
+      print("   • Run './auto-setup.sh --resume' to continue from where you left off")
+      print("   • Check the progress with './auto-setup.sh --status'")
       print('   • Review any error messages above')
 
       # Show failed steps
