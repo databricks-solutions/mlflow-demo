@@ -31,7 +31,7 @@ def main(api_json_from_server: bool) -> None:
   run(
     f"""
     pushd client/ > /dev/null && \
-    npx openapi-typescript-codegen --input {openapi_input} --output {output} --useUnionTypes && \
+    bunx openapi-typescript-codegen --input {openapi_input} --output {output} --useUnionTypes && \
     popd > /dev/null
   """
   )
