@@ -27,6 +27,7 @@ from typing import Any, Dict, List
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound, PermissionDenied
+from dotenv import load_dotenv
 
 # Add automation directory to path
 automation_dir = Path(__file__).parent / 'automation'
@@ -767,6 +768,40 @@ class AutoSetup:
     except Exception as e:
       print(f'⚠️  Could not restore config from progress: {e}')
 
+  def _load_config_from_env_file(self):
+    """Load configuration from .env.local file."""
+    try:
+      env_file = self.project_root / '.env.local'
+      if env_file.exists():
+        # Load environment variables from .env.local
+        load_dotenv(env_file)
+
+        # Update self.config with values from environment
+        env_mappings = {
+          'DATABRICKS_HOST': 'DATABRICKS_HOST',
+          'UC_CATALOG': 'UC_CATALOG',
+          'UC_SCHEMA': 'UC_SCHEMA',
+          'DATABRICKS_APP_NAME': 'DATABRICKS_APP_NAME',
+          'LLM_MODEL': 'LLM_MODEL',
+          'DEPLOYMENT_MODE': 'DEPLOYMENT_MODE',
+          'MLFLOW_EXPERIMENT_ID': 'MLFLOW_EXPERIMENT_ID',
+          'LHA_SOURCE_CODE_PATH': 'LHA_SOURCE_CODE_PATH',
+        }
+
+        loaded_keys = []
+        for config_key, env_key in env_mappings.items():
+          value = os.getenv(env_key)
+          if value:
+            self.config[config_key] = value
+            loaded_keys.append(config_key)
+
+        if loaded_keys:
+          print(f'🔄 Loaded configuration from .env.local: {loaded_keys}')
+      else:
+        print('⚠️  .env.local file not found')
+    except Exception as e:
+      print(f'⚠️  Could not load config from .env.local: {e}')
+
   def run_setup(self, resume: bool = False) -> bool:
     """Run the complete setup process.
 
@@ -788,6 +823,8 @@ class AutoSetup:
     # Restore configuration from previous progress if resuming
     if resume:
       self._restore_config_from_progress()
+      # Also load configuration from .env.local to ensure all values are present
+      self._load_config_from_env_file()
 
     # Initialize Databricks components (skip auth prompts on resume if already working)
     if not self._initialize_databricks_components(skip_auth_prompts=resume):
