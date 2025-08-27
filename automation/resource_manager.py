@@ -240,7 +240,7 @@ class DatabricksResourceManager:
   def grant_catalog_permissions(
     self, catalog_name: str, principal: str, permissions: List[str] = None
   ) -> None:
-    """Grant permissions on a catalog to a principal using SQL GRANT statements.
+    """Grant permissions on a catalog to a principal using the grants API.
 
     Args:
         catalog_name: Name of the catalog
@@ -253,67 +253,71 @@ class DatabricksResourceManager:
     try:
       print(f"🔐 Granting catalog permissions on '{catalog_name}' to '{principal}'...")
 
-      # Use SQL GRANT statements as the SDK grants.update doesn't support CATALOG securable type
-      success_count = 0
+      # Import required types for grants API
+      from databricks.sdk.service.catalog import Privilege, PrivilegeAssignment
 
-      # First, try to get a warehouse_id
-      warehouse_id = None
+      # Get application_id for the service principal
+      application_id = None
       try:
-        warehouses = self.client.warehouses.list()
-        if warehouses:
-          # Use the first available warehouse
-          warehouse_id = warehouses[0].id
-          print(f'   Using warehouse: {warehouse_id}')
+        sps = self.client.service_principals.list()
+        for sp in sps:
+          if sp.display_name == principal:
+            application_id = sp.application_id
+            print(f'   Found service principal application_id: {application_id}')
+            break
+
+        if not application_id:
+          raise Exception(f'Could not find application_id for service principal: {principal}')
+
       except Exception as e:
-        print(f'   ⚠️  Could not find warehouse, trying without: {e}')
+        print(f'   ⚠️  Could not get service principal application_id: {e}')
+        # Fallback to original principal name
+        application_id = principal
 
+      # Map permission strings to Privilege enum values
+      privilege_map = {
+        'USE CATALOG': Privilege.USE_CATALOG,
+        'USE_CATALOG': Privilege.USE_CATALOG,
+        'BROWSE': Privilege.BROWSE,
+        'CREATE': Privilege.CREATE,
+      }
+
+      # Build list of privileges to grant
+      privileges_to_grant = []
       for permission in permissions:
-        try:
-          # CRITICAL: Get application_id for the service principal (like experiments API)
-          # SQL GRANT also needs application_id, not display name
-          application_id = None
-          try:
-            sps = self.client.service_principals.list()
-            for sp in sps:
-              if sp.display_name == principal:
-                application_id = sp.application_id
-                print(f'   Found service principal application_id: {application_id}')
-                break
+        if permission in privilege_map:
+          privileges_to_grant.append(privilege_map[permission])
+        else:
+          print(f'   ⚠️  Unknown permission: {permission}, skipping...')
 
-            if not application_id:
-              raise Exception(f'Could not find application_id for service principal: {principal}')
+      if not privileges_to_grant:
+        raise Exception('No valid permissions to grant')
 
-          except Exception as e:
-            print(f'   ⚠️  Could not get service principal application_id: {e}')
-            # Fallback to original principal name
-            application_id = principal
+      # Create privilege assignment
+      privilege_assignment = PrivilegeAssignment(
+        principal=application_id, privileges=privileges_to_grant
+      )
 
-          # Construct SQL GRANT statement
-          # Note: Service principal names with spaces need to be quoted
-          quoted_principal = f'`{application_id}`'
-          sql_statement = f'GRANT {permission} ON CATALOG {catalog_name} TO {quoted_principal}'
+      print(f'   Granting {permissions} on catalog {catalog_name}...')
 
-          print(f'   Executing: {sql_statement}')
+      # Use grants.update() to add permissions (doesn't replace existing)
+      self.client.grants.update(
+        securable_type='CATALOG',  # String literal, not enum
+        full_name=catalog_name,
+        changes=[privilege_assignment],
+      )
 
-          # Execute the SQL statement
-          self.client.statement_execution.execute_statement(
-            warehouse_id=warehouse_id, statement=sql_statement
-          )
+      print(f"✅ Successfully granted {permissions} on '{catalog_name}' to '{principal}'")
 
-          success_count += 1
-          print(f'   ✅ Granted {permission}')
-
-        except Exception as sql_error:
-          print(f'   ⚠️  Failed to grant {permission}: {sql_error}')
-          continue
-
-      if success_count > 0:
-        print(
-          f'✅ Successfully granted {success_count}/{len(permissions)} catalog '
-          f"permissions on '{catalog_name}' to '{principal}'"
-        )
-      else:
-        raise Exception('No catalog permissions were successfully granted')
+      # Verify the permissions were granted
+      try:
+        updated_grants = self.client.grants.get(securable_type='CATALOG', full_name=catalog_name)
+        for grant in updated_grants.privilege_assignments:
+          if grant.principal == application_id:
+            print(f'   ✅ Verified: {grant.principal} has {grant.privileges}')
+            break
+      except Exception:
+        pass  # Verification is optional
 
     except Exception as e:
       print(f'⚠️  Warning: Failed to grant catalog permissions: {e}')
@@ -327,7 +331,7 @@ class DatabricksResourceManager:
   def grant_schema_permissions(
     self, schema_full_name: str, principal: str, permissions: List[str] = None
   ) -> None:
-    """Grant permissions on a schema to a principal using SQL GRANT statements.
+    """Grant permissions on a schema to a principal using the grants API.
 
     Args:
         schema_full_name: Full schema name (catalog.schema)
@@ -340,67 +344,77 @@ class DatabricksResourceManager:
     try:
       print(f"🔐 Granting permissions on schema '{schema_full_name}' to '{principal}'...")
 
-      # Use SQL GRANT statements as the SDK grants.update doesn't support SCHEMA securable type
-      success_count = 0
+      # Import required types for grants API
+      from databricks.sdk.service.catalog import Privilege, PrivilegeAssignment
 
-      # First, try to get a warehouse_id
-      warehouse_id = None
+      # Get application_id for the service principal
+      application_id = None
       try:
-        warehouses = self.client.warehouses.list()
-        if warehouses:
-          # Use the first available warehouse
-          warehouse_id = warehouses[0].id
-          print(f'   Using warehouse: {warehouse_id}')
+        sps = self.client.service_principals.list()
+        for sp in sps:
+          if sp.display_name == principal:
+            application_id = sp.application_id
+            print(f'   Found service principal application_id: {application_id}')
+            break
+
+        if not application_id:
+          raise Exception(f'Could not find application_id for service principal: {principal}')
+
       except Exception as e:
-        print(f'   ⚠️  Could not find warehouse, trying without: {e}')
+        print(f'   ⚠️  Could not get service principal application_id: {e}')
+        # Fallback to original principal name
+        application_id = principal
 
+      # Map permission strings to Privilege enum values
+      privilege_map = {
+        'ALL_PRIVILEGES': Privilege.ALL_PRIVILEGES,
+        'ALL PRIVILEGES': Privilege.ALL_PRIVILEGES,
+        'MANAGE': Privilege.MANAGE,
+        'CREATE': Privilege.CREATE,
+        'CREATE_TABLE': Privilege.CREATE_TABLE,
+        'CREATE TABLE': Privilege.CREATE_TABLE,
+        'SELECT': Privilege.SELECT,
+        'MODIFY': Privilege.MODIFY,
+        'USE_SCHEMA': Privilege.USE_SCHEMA,
+        'USE SCHEMA': Privilege.USE_SCHEMA,
+      }
+
+      # Build list of privileges to grant
+      privileges_to_grant = []
       for permission in permissions:
-        try:
-          # CRITICAL: Get application_id for the service principal (like experiments API)
-          # SQL GRANT also needs application_id, not display name
-          application_id = None
-          try:
-            sps = self.client.service_principals.list()
-            for sp in sps:
-              if sp.display_name == principal:
-                application_id = sp.application_id
-                print(f'   Found service principal application_id: {application_id}')
-                break
+        if permission in privilege_map:
+          privileges_to_grant.append(privilege_map[permission])
+        else:
+          print(f'   ⚠️  Unknown permission: {permission}, skipping...')
 
-            if not application_id:
-              raise Exception(f'Could not find application_id for service principal: {principal}')
+      if not privileges_to_grant:
+        raise Exception('No valid permissions to grant')
 
-          except Exception as e:
-            print(f'   ⚠️  Could not get service principal application_id: {e}')
-            # Fallback to original principal name
-            application_id = principal
+      # Create privilege assignment
+      privilege_assignment = PrivilegeAssignment(
+        principal=application_id, privileges=privileges_to_grant
+      )
 
-          # Construct SQL GRANT statement
-          # Note: Service principal names with spaces need to be quoted
-          quoted_principal = f'`{application_id}`'
-          sql_statement = f'GRANT {permission} ON SCHEMA {schema_full_name} TO {quoted_principal}'
+      print(f'   Granting {permissions} on schema {schema_full_name}...')
 
-          print(f'   Executing: {sql_statement}')
+      # Use grants.update() to add permissions (doesn't replace existing)
+      self.client.grants.update(
+        securable_type='SCHEMA',  # String literal, not enum
+        full_name=schema_full_name,
+        changes=[privilege_assignment],
+      )
 
-          # Execute the SQL statement
-          self.client.statement_execution.execute_statement(
-            warehouse_id=warehouse_id, statement=sql_statement
-          )
+      print(f"✅ Successfully granted {permissions} on '{schema_full_name}' to '{principal}'")
 
-          success_count += 1
-          print(f'   ✅ Granted {permission}')
-
-        except Exception as sql_error:
-          print(f'   ⚠️  Failed to grant {permission}: {sql_error}')
-          continue
-
-      if success_count > 0:
-        print(
-          f'✅ Successfully granted {success_count}/{len(permissions)} permissions '
-          f"on '{schema_full_name}' to '{principal}'"
-        )
-      else:
-        raise Exception('No permissions were successfully granted')
+      # Verify the permissions were granted
+      try:
+        updated_grants = self.client.grants.get(securable_type='SCHEMA', full_name=schema_full_name)
+        for grant in updated_grants.privilege_assignments:
+          if grant.principal == application_id:
+            print(f'   ✅ Verified: {grant.principal} has {grant.privileges}')
+            break
+      except Exception:
+        pass  # Verification is optional
 
     except Exception as e:
       print(f'⚠️  Warning: Failed to grant permissions on schema: {e}')
