@@ -23,6 +23,9 @@ client/package-lock.json
 # Generated API client
 client/src/fastapi_client/
 
+# Build artifacts (Vite build output)
+client/build/index.html
+client/build/assets/*.js
 
 email_app/
 

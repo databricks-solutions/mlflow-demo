@@ -7,6 +7,7 @@ from typing import List, Optional
 import mlflow
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound, PermissionDenied
+from datetime import timedelta
 from databricks.sdk.service.apps import App
 from databricks.sdk.service.catalog import CatalogInfo, SchemaInfo
 
@@ -23,6 +24,37 @@ class DatabricksResourceManager:
     """
     self.client = workspace_client or WorkspaceClient()
     self.created_resources = []
+
+  def get_service_principal_application_id(self, principal_name: str, timeout_seconds: int = 60) -> str:
+    """Get the application_id for a service principal by display name.
+    
+    Args:
+        principal_name: Display name of the service principal
+        timeout_seconds: Timeout for the API call
+        
+    Returns:
+        Application ID of the service principal
+        
+    Raises:
+        Exception: If service principal not found or timeout occurs
+    """
+    try:
+      print(f'   Looking up service principal: {principal_name}...')
+      
+      # Use filter to search by display name instead of listing all service principals
+      filter_query = f'displayName eq "{principal_name}"'
+      sps = self.client.service_principals.list(filter=filter_query)
+      
+      for sp in sps:
+        if sp.display_name == principal_name:
+          print(f'   Found service principal application_id: {sp.application_id}')
+          return sp.application_id
+      
+      raise Exception(f'Could not find application_id for service principal: {principal_name}')
+      
+    except Exception as e:
+      print(f'   ⚠️  Could not get service principal application_id: {e}')
+      raise e
 
   def create_catalog_if_not_exists(self, catalog_name: str) -> CatalogInfo:
     """Create a Unity Catalog catalog if it doesn't exist.
@@ -257,18 +289,8 @@ class DatabricksResourceManager:
       from databricks.sdk.service.catalog import Privilege, PrivilegeAssignment
 
       # Get application_id for the service principal
-      application_id = None
       try:
-        sps = self.client.service_principals.list()
-        for sp in sps:
-          if sp.display_name == principal:
-            application_id = sp.application_id
-            print(f'   Found service principal application_id: {application_id}')
-            break
-
-        if not application_id:
-          raise Exception(f'Could not find application_id for service principal: {principal}')
-
+        application_id = self.get_service_principal_application_id(principal)
       except Exception as e:
         print(f'   ⚠️  Could not get service principal application_id: {e}')
         # Fallback to original principal name
@@ -348,18 +370,8 @@ class DatabricksResourceManager:
       from databricks.sdk.service.catalog import Privilege, PrivilegeAssignment
 
       # Get application_id for the service principal
-      application_id = None
       try:
-        sps = self.client.service_principals.list()
-        for sp in sps:
-          if sp.display_name == principal:
-            application_id = sp.application_id
-            print(f'   Found service principal application_id: {application_id}')
-            break
-
-        if not application_id:
-          raise Exception(f'Could not find application_id for service principal: {principal}')
-
+        application_id = self.get_service_principal_application_id(principal)
       except Exception as e:
         print(f'   ⚠️  Could not get service principal application_id: {e}')
         # Fallback to original principal name
@@ -456,18 +468,8 @@ class DatabricksResourceManager:
 
       # CRITICAL: Need to get the application_id from the service principal name
       # The experiments API requires application_id, not display name
-      application_id = None
       try:
-        sps = self.client.service_principals.list()
-        for sp in sps:
-          if sp.display_name == principal:
-            application_id = sp.application_id
-            print(f'   Found service principal application_id: {application_id}')
-            break
-
-        if not application_id:
-          raise Exception(f'Could not find application_id for service principal: {principal}')
-
+        application_id = self.get_service_principal_application_id(principal)
       except Exception as e:
         print(f'⚠️  Could not get service principal application_id: {e}')
         raise e
@@ -570,20 +572,8 @@ class DatabricksResourceManager:
         raise Exception('App service principal not found')
 
       # Get the service principal application_id (consistent with other APIs)
-      application_id = None
       try:
-        sps = self.client.service_principals.list()
-        for sp in sps:
-          if sp.display_name == app_sp_display_name:
-            application_id = sp.application_id
-            print(f'   Found service principal application_id: {application_id}')
-            break
-
-        if not application_id:
-          raise Exception(
-            f'Could not find application_id for service principal: {app_sp_display_name}'
-          )
-
+        application_id = self.get_service_principal_application_id(app_sp_display_name)
       except Exception as e:
         print(f'⚠️  Could not get service principal application_id: {e}')
         raise e
