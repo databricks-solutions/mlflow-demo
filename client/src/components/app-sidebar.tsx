@@ -19,6 +19,8 @@ import {
   ExternalLink,
   BookOpen,
   Globe,
+  Trophy,
+  HelpCircle,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -30,6 +32,9 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -50,9 +55,9 @@ const data = {
     // },
 
     {
-      title: "Sales email generator",
-      value: "email",
-      icon: Mail,
+      title: "DC Assistant",
+      value: "step1-tracing",
+      icon: Trophy,
     },
   ],
   mlflowSteps: [
@@ -60,47 +65,46 @@ const data = {
       title: "Demo Overview",
       value: "demo-overview",
       icon: PlayCircle,
-      description: "Introduction",
+      description: "Introduction to DC Assistant optimization",
     },
     {
-      title: "Observe with tracing",
+      title: "Observe DC Analysis",
       value: "step1-tracing",
       icon: FlaskConical,
-      description: "Capture every app execution and attach user feedback",
+      description: "Capture agent behavior with MLflow tracing",
     },
     {
-      title: "Create quality metrics",
+      title: "Evaluate Recommendations",
       value: "step2-evaluation",
       icon: Target,
       description:
-        "Create automated quality metrics that align with domain experts",
+        "Create LLM judges for defensive coordinator recommendations",
     },
     {
-      title: "Find & fix quality issues",
+      title: "Collect Ground Truth Labels",
       value: "step3-improvement",
       icon: TrendingUp,
-      description: "Use production traces to test and improve quality",
-    },
-
-    {
-      title: "Production Monitoring",
-      value: "step5-monitoring",
-      icon: Activity,
-      description: "Continuously monitor GenAI quality in production",
+      description: "Create labeled datasets through SME review sessions",
     },
     {
-      title: "Human Review",
-      value: "step6-human-review",
-      icon: Users,
-      description:
-        "Collect expert feedback to improve GenAI quality through structured labeling",
-    },
-    {
-      title: "Link to business KPIs",
+      title: "Align Judges to Experts",
       value: "step4-kpis",
       icon: BarChart3,
       description:
-        "Link GenAI usage data to business KPIs to show ROI from GenAI apps",
+        "Calibrate judges to match coaching expertise with SIMBA/MemAlign",
+    },
+    {
+      title: "Optimize Prompts",
+      value: "step5-monitoring",
+      icon: Activity,
+      description: "Automatically improve prompts with GEPA optimizer",
+    },
+    {
+      title: "Ongoing Monitoring",
+      value: "step6-human-review",
+      icon: Users,
+      description:
+        "Self-optimizing cycle from coach feedback to improved prompts",
     },
     // {
     //   title: "Step 5: Prompt Registry",
@@ -202,7 +206,7 @@ export function AppSidebar({
         {children}
 
         <NavSteps items={data.mlflowSteps} />
-        <NavMain items={data.navMain} label="Use the sample app" />
+        <NavMain items={data.navMain} label="Try the DC Assistant" />
         <NavDocuments
           // selectedAgent={selectedAgent}
           // setSelectedAgent={setSelectedAgent}
@@ -212,6 +216,14 @@ export function AppSidebar({
           // isStreamingEnabled={isStreamingEnabled}
           // setIsStreamingEnabled={setIsStreamingEnabled}
         />
+        <SidebarGroup>
+          <SidebarGroupLabel>Have questions or feedback?</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <p className="px-3 text-xs text-muted-foreground">
+              Reach out to Nethra Ranganathan or Austin Choi
+            </p>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <NavSecondary items={data.resources} label="Get started on your own" />
       </SidebarContent>
       {/* <SidebarFooter>

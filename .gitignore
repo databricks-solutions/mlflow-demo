@@ -15,6 +15,7 @@ mlruns
 .DS_Store
 
 # Frontend dependencies and build outputs
+node_modules/
 client/node_modules/
 client/dist/
 package-lock.json

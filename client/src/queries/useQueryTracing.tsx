@@ -1,11 +1,14 @@
 import { useQuery } from "react-query";
-import { DefaultService } from "../fastapi_client/services/DefaultService";
 
 export function useQueryExperiment() {
   return useQuery({
     queryKey: ["experiment"],
     queryFn: async () => {
-      return DefaultService.experimentApiTracingExperimentGet();
+      const response = await fetch("/api/tracing_experiment");
+      if (!response.ok) {
+        throw new Error("Failed to fetch experiment");
+      }
+      return response.json();
     },
   });
 }

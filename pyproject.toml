@@ -3,16 +3,18 @@ name = "mlflow-email-demo"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
   "fastapi[standard]>=0.115.8",
-  "mlflow[databricks]>=3.2",
+  "mlflow[databricks]>=3.9.0",
+  "databricks-agents>=1.5.0",
   "python-dotenv>=1.0.1",
   "uvicorn>=0.34.0",
   "openai>=1.66.0",
   "httpx>=0.28.0",
   "pydantic>=2.10.0",
   "databricks-sdk>=0.36.0",
+  "databricks-openai>=0.10.0",
   "requests>=2.31.0",
   # Conflict resolution pins for Databricks Apps pre-installed packages
   "tenacity==9.0.0",
@@ -45,7 +47,7 @@ dev = [
 src = ["server"]
 line-length = 100
 indent-width = 2
-target-version = "py312"
+target-version = "py310"
 fix = true
 
 # Exclude a variety of commonly ignored directories.

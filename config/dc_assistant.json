@@ -1,0 +1,70 @@
+{
+  "workspace": {
+    "catalog": "ac_demo",
+    "schema": "dc_assistant"
+  },
+  "data_collection": {
+    "seasons": [
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "mlflow": {
+    "experiment_id": "2517718719552044"
+  },
+  "prompt_registry": {
+    "prompt_name": "ac_demo.dc_assistant.dcassistant",
+    "reflection_model": "databricks:/databricks-gpt-5-2"
+  },
+  "llm": {
+    "endpoint_name": "databricks-gpt-5-nano",
+    "judge_model": "databricks:/databricks-gpt-5-2"
+  },
+  "model": {
+    "model_name": "ac_dc_assistant",
+    "uc_model_name": "ac_demo.dc_assistant.ac_dc_assistant"
+  },
+  "evaluation": {
+    "dataset_name": "ac_demo.dc_assistant.dc_assistant_eval_trace_data",
+    "label_schema_name": "football_analysis_base",
+    "labeling_session_name": "dcassistant_eval_labeling",
+    "assigned_users": [
+      "austin.choi@databricks.com"
+    ]
+  },
+  "judges": {
+    "aligned_judge_name": "football_analysis_judge_align"
+  },
+  "optimization": {
+    "optimization_dataset_name": "ac_demo.dc_assistant.dcassistant_optimization_data"
+  },
+  "alignment": {
+    "alignment_runs_table": "ac_demo.dc_assistant.alignment_runs"
+  },
+  "tools": {
+    "uc_tool_names": [
+      "ac_demo.dc_assistant.who_got_ball_by_down_distance",
+      "ac_demo.dc_assistant.who_got_ball_by_offense_situation",
+      "ac_demo.dc_assistant.tendencies_by_offense_formation",
+      "ac_demo.dc_assistant.tendencies_by_down_distance",
+      "ac_demo.dc_assistant.tendencies_by_drive_start",
+      "ac_demo.dc_assistant.tendencies_by_score_2nd_half",
+      "ac_demo.dc_assistant.tendencies_two_minute_drill",
+      "ac_demo.dc_assistant.who_got_ball_by_down_distance_and_form",
+      "ac_demo.dc_assistant.who_got_ball_two_minute_drill",
+      "ac_demo.dc_assistant.first_play_after_turnover",
+      "ac_demo.dc_assistant.screen_play_tendencies",
+      "ac_demo.dc_assistant.success_by_pass_rush_and_coverage"
+    ]
+  },
+  "prompt_registry_auth": {
+    "use_oauth": true,
+    "secret_scope_name": "dc-assistant-secrets",
+    "oauth_client_id_key": "oauth-client-id",
+    "oauth_client_secret_key": "oauth-client-secret",
+    "oauth_client_id": "89b41358-2ef3-4fd3-91cd-2df05813de19",
+    "pat_key": "databricks-pat",
+    "databricks_host": "https://e2-demo-field-eng.cloud.databricks.com/"
+  }
+}

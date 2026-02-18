@@ -2,13 +2,15 @@
 # to avoid conflicts with pre-installed packages in Databricks Apps
 
 fastapi[standard]>=0.115.8
-mlflow[databricks]>=3.2
+mlflow[databricks]>=3.9.0
+databricks-agents>=1.5.0
 python-dotenv>=1.0.1
 uvicorn>=0.34.0
 openai>=1.66.0
 httpx>=0.28.0
 pydantic>=2.10.0
 databricks-sdk>=0.36.0
+databricks-openai>=0.10.0
 requests>=2.31.0
 tenacity==9.0.0
 pillow==11.1.0
