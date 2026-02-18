@@ -1,0 +1,37 @@
+{
+  "prompt_registry": {
+    "prompt_name": "ac_demo.dc_assistant.dc_assistant_prompt"
+  },
+  "llm": {
+    "endpoint_name": "databricks-meta-llama-3-3-70b-instruct"
+  },
+  "model": {
+    "uc_model_name": "ac_demo.dc_assistant.ac_dc_assistant",
+    "model_name": "ac_dc_assistant"
+  },
+  "tools": {
+    "uc_tool_names": [
+      "ac_demo.dc_assistant.who_got_ball_by_down_distance",
+      "ac_demo.dc_assistant.red_zone_tendencies",
+      "ac_demo.dc_assistant.tendencies_by_personnel",
+      "ac_demo.dc_assistant.success_by_pass_rush_and_coverage",
+      "ac_demo.dc_assistant.target_share_by_down",
+      "ac_demo.dc_assistant.screen_play_tendencies"
+    ]
+  },
+  "workspace": {
+    "catalog": "ac_demo",
+    "schema": "dc_assistant"
+  },
+  "mlflow": {
+    "experiment_id": "YOUR_EXPERIMENT_ID"
+  },
+  "prompt_registry_auth": {
+    "secret_scope_name": "dc-assistant-scope",
+    "oauth_client_id_key": "oauth-client-id",
+    "oauth_client_secret_key": "oauth-client-secret",
+    "pat_key": "databricks-pat",
+    "databricks_host": "https://YOUR_WORKSPACE.cloud.databricks.com",
+    "use_oauth": true
+  }
+}

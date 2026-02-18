@@ -1,8 +1,8 @@
-# MLflow 3 GenAI Demo
+# MLflow 3 GenAI Demo — DC Assistant
 
-A comprehensive demonstration of **MLflow 3's GenAI capabilities** for observability and evaluating, monitoring, and improving GenAI application quality. This interactive demo showcases a sales email generation use case with end-to-end quality assessment workflows.
+A comprehensive demonstration of **MLflow 3's GenAI capabilities** for observing, evaluating, monitoring, and improving GenAI application quality. This interactive demo showcases an NFL Defensive Coordinator (DC) Assistant that analyzes play-calling tendencies using Unity Catalog tools, with end-to-end quality assessment workflows powered by MLflow.
 
-This interactive demo is deployed as a Databricks app in your Databricks workspace. There is a guided UI experience that's accompanied by Notebooks that show you how to do the end-to-end workflow of evaluating quality, iterating to improve quality, and monitoring quality in production.
+The demo is deployed as a **Databricks App** with a guided UI experience. Companion **notebooks** walk through the full workflow — from tracing agent behavior, to evaluating quality with LLM judges, to aligning judges with domain experts, to optimizing prompts automatically.
 
 **Learn more about MLflow 3:**
 
@@ -10,68 +10,136 @@ This interactive demo is deployed as a Databricks app in your Databricks workspa
 - View our [website](https://www.managed-mlflow.com/genai)
 - Get started via the [documentation](https://docs.databricks.com/aws/en/mlflow3/genai/)
 
-<video src="https://i.imgur.com/MXhaayF.mp4" controls width="100%"></video>
+## What's included
+
+| Component | Description |
+|-----------|-------------|
+| **DC Assistant Agent** | Tool-calling agent that queries NFL play-by-play data via Unity Catalog functions |
+| **Interactive Web UI** | React + FastAPI app with a guided walkthrough of MLflow's GenAI capabilities |
+| **Notebooks** | Step-by-step notebooks covering tracing, evaluation, labeling, judge alignment, prompt optimization, and monitoring |
+| **Setup Scripts** | Automated and manual setup for loading prompts, sample traces, evaluation runs, and monitoring |
+
+### Demo walkthrough steps
+
+1. **Observe DC Analysis** — Capture agent behavior with MLflow tracing (single-tool and multi-tool queries)
+2. **Evaluate Recommendations** — Create LLM judges for single-turn and multi-turn (session-level) evaluation
+3. **Collect Ground Truth Labels** — Build labeled datasets through SME review sessions
+4. **Align Judges to Experts** — Calibrate judges to match coaching expertise with SIMBA/MemAlign
+5. **Optimize Prompts** — Automatically improve prompts with GEPA optimizer
+6. **Ongoing Monitoring** — Self-optimizing cycle from coach feedback to improved prompts
+
+## Project structure
+
+```
+├── mlflow_demo/
+│   ├── agent/            # DC Assistant agent (ToolCallingAgent + ResponsesAgent)
+│   │   └── config/       # Agent config (UC tools, workspace settings)
+│   └── notebooks/        # Step-by-step demo notebooks (0–5)
+├── server/               # FastAPI backend (routes, SSE streaming)
+├── client/               # React frontend (Vite + shadcn/ui)
+├── setup/                # Data loading scripts (prompts, traces, evals, monitoring)
+├── docs/                 # Reference notebooks (judge alignment, prompt optimization)
+├── auto-setup.sh         # Automated one-command setup
+├── setup.sh              # Interactive environment configuration
+├── load_sample_data.sh   # Load sample traces, evals, and prompts
+├── deploy.sh             # Deploy to Databricks Apps
+└── start_server.sh       # Local development server
+```
+
+### Notebooks
+
+Located in `mlflow_demo/notebooks/`:
+
+| Notebook | Topic |
+|----------|-------|
+| `0_demo_overview` | Introduction and setup |
+| `1_observe_with_traces` | MLflow tracing for agent observability |
+| `2_create_quality_metrics` | Building LLM judges and running evaluations |
+| `3_find_fix_quality_issues` | Identifying and fixing quality issues from eval results |
+| `4_human_review` | Expert labeling sessions for ground truth |
+| `5_production_monitoring` | Scheduled evaluation monitoring in production |
 
 ## Installing the demo
 
 Choose your installation method:
 
-### 🤖 Option A: Automated Setup (Recommended)
+### Option A: Automated Setup (Recommended)
 
-**Estimated time: 2 minutes user input + 15 minutes waiting for scripts to run**
+**Estimated time: 2 minutes input + 15 minutes for scripts to run**
 
-The automated setup handles resource creation, configuration, and deployment for you using the Databricks Workspace SDK.
+The automated setup handles resource creation, configuration, and deployment using the Databricks Workspace SDK.
 
 #### Prerequisites
-- [ ] **Databricks workspace access** - [Create one here](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=email_demo_github) if needed
-- [ ] **Install Python `>=3.10.16`**
 
-#### Run Automated Setup
+- [ ] **Databricks workspace access** — [Create one here](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=email_demo_github) if needed
+- [ ] **Python >= 3.10.16**
+- [ ] **Databricks CLI >= 0.262.0** — [Installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
 
-The `./auto-setup.sh` script will run all the steps outlined in the [Manual Setup](#-option-b-manual-setup) workflow.
+#### Run automated setup
 
+```bash
+git clone https://github.com/databricks-solutions/mlflow-demo.git
+cd mlflow-demo
+databricks auth login   # Authenticate with your workspace
+./auto-setup.sh
+```
 
-- [ ] **1. Install the Databricks CLI >= 0.262.0**
-  - Follow the [installation guide](https://docs.databricks.com/aws/en/dev-tools/cli/install)
-  - Verify installation: Run `databricks --version` to confirm it's installed
-- [ ] **2. Install Python >= 3.10.16**
-- [ ] **3. Authenticate with your workspace**
-  - Run `databricks auth login` and follow the prompts
-  - Configure a profile named `DEFAULT`
-- [ ] **3. Clone repo and run setup script**
+The script will:
+1. Check and install prerequisites (uv, bun)
+2. Initialize Python and TypeScript environments
+3. Prompt you for workspace configuration (experiment ID, UC schema, app name, etc.)
+4. Load sample data (prompts, traces, evaluation runs, monitoring)
+5. Deploy the app
 
-    ```bash
-    git clone https://github.com/databricks-solutions/mlflow-demo.git
-    cd mlflow-demo
-    ./auto-setup.sh
-    ```
+### Option B: Manual Setup
 
+**Estimated time: 10 minutes work + 15 minutes for scripts to run**
 
-### 🔧 Option B: Manual Setup
+For step-by-step manual installation, see **[MANUAL_SETUP.md](MANUAL_SETUP.md)**.
 
-**Estimated time: 10 minutes work + 15 minutes waiting for scripts to run**
+The manual setup covers:
+- Phase 1: Prerequisites (workspace, MLflow experiment, Unity Catalog schema, CLI)
+- Phase 2: Choose deployment mode (full app vs. notebooks only)
+- Phase 3: Environment configuration and sample data loading
+- Phase 4: Deployment and permissions
 
-For step-by-step manual installation instructions, see **[MANUAL_SETUP.md](MANUAL_SETUP.md)**.
+## Local development
 
-The manual setup includes:
-- Phase 1: Prerequisites setup (workspace, app creation, MLflow experiment, etc.)
-- Phase 2: Local installation and testing
-- Phase 3: Deployment and permission configuration
+To run the app locally after setup:
 
----
+```bash
+# Start the backend (FastAPI on port 8000)
+./start_server.sh
 
-## MLflow 3 overview
+# In a separate terminal, start the frontend (Vite on port 3000)
+cd client && npm run dev
+```
 
-MLflow 3.0 has been redesigned for the GenAI era. If your team is building GenAI-powered apps, this update makes it dramatically easier to evaluate, monitor, and improve them in production.
+Visit `http://localhost:3000` to use the demo.
 
-### Key capabilities
+## Configuration
 
-- **🔍 GenAI Observability at Scale:** Monitor & debug GenAI apps anywhere \- deployed on Databricks or ANY cloud \- with production-scale real-time tracing and enhanced UIs. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/)
-- 📊 **Revamped GenAI Evaluation:** Evaluate app quality using a brand-new SDK, simpler evaluation interface and a refreshed UI. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/)
-- ⚙️ **Customizable Evaluation:** Tailor AI judges or custom metrics to your use case. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/custom-judge/)
-- 👀 **Monitoring:** Schedule automatic quality evaluations (beta). [Link](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/run-scorer-in-prod)
-- 🧪 **Leverage Production Logs to Improve Quality:** Turn real user traces into curated, versioned evaluation datasets to continuously improve app performance . [Link](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/build-eval-dataset)
-- 📝 **Close the Loop with** **Feedback:** Capture end-user feedback from your app’s UI. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/collect-user-feedback/)
-- **👥 Domain Expert Labeling:** Send traces to human experts for ground truth or target output labeling. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/human-feedback/expert-feedback/label-existing-traces)
-- 📁 **Prompt Management:** Prompt Registry for versioning. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/prompt-version-mgmt/prompt-registry/create-and-edit-prompts)
-- 🧩 **App Version Tracking:** Link app versions to quality evaluations. [Link](https://docs.databricks.com/aws/en/mlflow3/genai/prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow)
+Environment variables are configured in `.env` (created by the setup script). Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABRICKS_HOST` | Your Databricks workspace URL |
+| `MLFLOW_EXPERIMENT_ID` | MLflow experiment for tracing and evaluation |
+| `UC_CATALOG` / `UC_SCHEMA` | Unity Catalog location for agent tools and prompts |
+| `LLM_MODEL` | Model serving endpoint (e.g., `databricks-claude-3-7-sonnet`) |
+| `PROMPT_NAME` | Prompt Registry name (`dc_assistant_system_prompt`) |
+
+## MLflow 3 capabilities demonstrated
+
+- **GenAI Observability** — Production-scale tracing for agent tool calls, LLM responses, and session context. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/)
+- **Evaluation with LLM Judges** — Built-in and custom scorers for single-turn and multi-turn (session-level) quality. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/)
+- **Custom Judges** — Tailor AI judges to your domain (e.g., football coaching accuracy). [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/custom-judge/)
+- **Production Monitoring** — Scheduled automatic quality evaluations. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/run-scorer-in-prod)
+- **Evaluation Datasets** — Turn production traces into curated, versioned datasets. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/build-eval-dataset)
+- **User Feedback** — Capture end-user feedback (thumbs up/down + comments) on traces. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/collect-user-feedback/)
+- **Expert Labeling** — Send traces to domain experts for ground truth labeling. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/human-feedback/expert-feedback/label-existing-traces)
+- **Prompt Registry** — Version and manage prompts centrally. [Docs](https://docs.databricks.com/aws/en/mlflow3/genai/prompt-version-mgmt/prompt-registry/create-and-edit-prompts)
+
+## Questions or feedback?
+
+Reach out to Nethra Ranganathan or Austin Choi.

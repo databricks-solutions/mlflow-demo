@@ -53,16 +53,16 @@ Before proceeding to Phase 2, verify you have:
 
 Both options include the complete MLflow evaluation setup:
 • MLflow Experiment with sample traces, evaluation runs, prompts, and production monitoring
-• Sales email generation code with sample data
-• Interactive Notebooks that walk you through using MLflow to improve GenAI quality
+• DC Assistant agent code with NFL play-by-play sample data
+• Interactive notebooks that walk you through using MLflow to improve GenAI quality
 
 **Choose how you want to interact with the demo:**
 
 ### Option 1: 📱 Full Databricks App (Recommended)
 - **Best for**: Workspaces where Databricks Apps are enabled
 - **What you get**:
-  - User-friendly web UI for exploring workflows
-  - Interactive demo UI to try the sample app
+  - User-friendly web UI for exploring MLflow workflows
+  - Interactive DC Assistant demo for trying the agent
   - All notebooks for deeper exploration
 - **Requirements**: Databricks Apps enabled in your workspace
 - **Continue to**: Phase 3.1 (Full App Setup)
@@ -161,7 +161,7 @@ Run these commands in order from the project root directory:
 
 - Starts both backend (port 8000) and frontend development servers
 - Visit `http://localhost:8000` to verify the demo works locally
-- **Success criteria**: You should see the email generation interface and be able to generate emails
+- **Success criteria**: You should see the DC Assistant interface and be able to ask questions about NFL play-calling tendencies
 
 ### ✅ Environment Setup Checkpoint
 
@@ -170,13 +170,13 @@ Verify your setup:
 - [ ] Environment variables configured successfully
 - [ ] Sample data loaded without errors
 - [ ] Local server runs and demo interface loads
-- [ ] Can generate emails locally (test the core functionality)
+- [ ] Can ask the DC Assistant questions locally (test the core functionality)
 
 ---
 
 ## 🚀 Phase 5: Deployment
 
-> ⚠️ **STOP**: Only proceed if Phase 4 completed successfully and you can generate emails locally.
+> ⚠️ **STOP**: Only proceed if Phase 4 completed successfully and the DC Assistant works locally.
 
 ### 5.1 Deploy Based on Your Mode
 
@@ -216,7 +216,7 @@ Your Databricks App needs specific permissions to access the MLflow experiment a
 - [ ] Click **Add Resource** and choose **Serving Endpoint**
 - [ ] Select your model serving endpoint (`databricks-claude-3-7-sonnet` unless you changed the model)
 - [ ] Press **Save**
-- [ ] This allows the app to call the LLM for email generation
+- [ ] This allows the app to call the LLM for the DC Assistant
 
 ##### Deploy the App
 
@@ -253,7 +253,7 @@ Your Databricks App needs specific permissions to access the MLflow experiment a
 After deployment completes:
 - [ ] Check that your app shows as **ACTIVE** in Databricks Apps console
 - [ ] Visit your app URL (provided in deploy script output)
-- [ ] Test email generation functionality in the web interface
+- [ ] Test the DC Assistant functionality in the web interface
 - [ ] Verify that traces appear in your MLflow experiment
 
 #### Notebook-Only Success:
@@ -272,9 +272,9 @@ After sync completes:
 
 Your app is live! You should be able to:
 - [ ] Access the app via the Databricks Apps URL
-- [ ] Generate emails using the deployed application
+- [ ] Ask the DC Assistant questions about NFL play-calling tendencies
 - [ ] See traces and experiments in MLflow
-- [ ] Use all demo features (prompt registry, evaluation, etc.)
+- [ ] Use all demo features (evaluation, labeling, monitoring, etc.)
 - [ ] Explore the interactive web interface
 
 **🎯 Your App URL**: Check the deploy script output for the direct link

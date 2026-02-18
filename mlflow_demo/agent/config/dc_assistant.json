@@ -1,0 +1,30 @@
+{
+  "workspace": {
+    "catalog": "nethra_ranganathan",
+    "schema": "mlflow_dc_2"
+  },
+  "prompt_registry": {
+    "prompt_name": "dc_assistant_system_prompt"
+  },
+  "llm": {
+    "endpoint_name": "databricks-claude-3-7-sonnet"
+  },
+  "tools": {
+    "uc_tool_names": [
+      "nethra_ranganathan.mlflow_dc_2.who_got_ball_by_down_distance",
+      "nethra_ranganathan.mlflow_dc_2.screen_play_tendencies",
+      "nethra_ranganathan.mlflow_dc_2.tendencies_by_down_distance",
+      "nethra_ranganathan.mlflow_dc_2.tendencies_by_drive_start",
+      "nethra_ranganathan.mlflow_dc_2.tendencies_by_offense_formation",
+      "nethra_ranganathan.mlflow_dc_2.tendencies_two_minute_drill",
+      "nethra_ranganathan.mlflow_dc_2.first_play_after_turnover"
+    ]
+  },
+  "prompt_registry_auth": {
+    "use_oauth": true,
+    "secret_scope_name": "dc-assistant-secrets",
+    "oauth_client_id_key": "oauth-client-id",
+    "oauth_client_secret_key": "oauth-client-secret",
+    "databricks_host": "https://e2-demo-field-eng.cloud.databricks.com/"
+  }
+}

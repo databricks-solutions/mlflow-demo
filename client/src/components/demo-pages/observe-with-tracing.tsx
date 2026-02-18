@@ -3,74 +3,76 @@ import { StepLayout } from "@/components/step-layout";
 import { CodeSnippet } from "@/components/code-snippet";
 import { CollapsibleSection } from "@/components/collapsible-section";
 import { MarkdownContent } from "@/components/markdown-content";
-import { EmailGenerator } from "@/components/email-generator/EmailGenerator";
+import { DcTracingDemo } from "@/components/dc-assistant/DcTracingDemo";
+import { MultiToolDemo } from "@/components/dc-assistant/MultiToolDemo";
+import { MultiTurnDemo } from "@/components/dc-assistant/MultiTurnDemo";
+import { QuestionTester } from "@/components/dc-assistant/QuestionTester";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import { useQueryPreloadedResults } from "@/queries/useQueryPreloadedResults";
+import { useQueryExperiment } from "@/queries/useQueryTracing";
 import { NotebookReference } from "@/components/notebook-reference";
 
 const introContent = `
-# MLflow Tracing for GenAI Applications
+# MLflow Tracing: Foundation for Agent Observability
 
-MLflow Tracing provides comprehensive observability for your GenAI applications, allowing you to:
+**MLflow Tracing is one of the core constructs of MLflow 3.0+**, providing complete observability into GenAI agent behavior. Every agent interaction—tool calls, LLM invocations, data queries—is automatically captured as a structured trace, giving you the foundation for debugging, evaluation, and continuous improvement.
 
-- **Debug** issues by inspecting inputs, outputs, and intermediate steps
-- **Collect** user feedback to improve your models
-- **Optimize** latency by identifying bottlenecks
+**Why Tracing Matters for Quality Agents:**
+- **Debugging**: See exactly which tools fired, what parameters were used, and where failures occurred
+- **Evaluation**: Link quality metrics and expert feedback directly to specific agent behaviors
+- **Optimization**: Identify bottlenecks, inefficient tool usage, and opportunities for improvement
+- **Accountability**: Maintain complete audit trail of agent decisions and data sources
 
-Implementing MLflow Tracing only requires *a single line of code*.  You can attach end user feedback from your UI to the corresponding trace so you can quickly debug user-reported issues.
+When a coach asks "What do the Cowboys do on 3rd and 6?", the DC Assistant makes multiple decisions: which Unity Catalog functions to call, what parameters to use, how to interpret the results. **MLflow Tracing automatically captures all of this**, creating a detailed execution graph that serves as the input for evaluation and feedback collection.
 
-![tracing-demo](https://i.imgur.com/tNYUHdC.gif)
+**Without tracing, you're flying blind.** Tracing is the prerequisite for everything that follows: evaluation, labeling, judge alignment, and prompt optimization.
 `;
 
 const simpleTracingCode = `
   import mlflow
-  import json
-  from typing import Dict, Any
-  from openai import OpenAI
+  from databricks.agents import ResponsesAgent
+  from databricks.agents.toolkits import UCFunctionToolkit
 
-+ # 🔍 TRACING: Enable automatic tracing of OpenAI SDK calls
-+ mlflow.openai.autolog()  # [AUTO-TRACE] Traces all OpenAI calls
++ # 🔍 TRACING: Enable tracing for the agent
++ mlflow.set_experiment(experiment_id=MLFLOW_EXPERIMENT_ID)
 
-  # Import our EmailGenerator class which uses MLflow Tracing
-  from mlflow_demo.agent.email_generator import EmailGenerator
+  # Load Unity Catalog tools (SQL functions)
+  tools = UCFunctionToolkit(
+      catalog=UC_CATALOG,
+      schema=UC_SCHEMA,
+      function_names=[
+          "who_got_ball_by_down_distance",
+          "success_by_pass_rush_and_coverage",
+          "tendencies_by_personnel",
+          "screen_play_tendencies",
+          # ... more tools
+      ]
+  )
 
-  # Initialize the EmailGenerator with environment configuration
-  email_generator = EmailGenerator()
+  # Create the agent with automatic tracing
++ # 🔍 TRACING: ResponsesAgent automatically traces all interactions
+  agent = ResponsesAgent(
+      tools=tools.get_tools(),
+      system_prompt=system_prompt,
+      model=LLM_MODEL,
+  )
 
-  # The EmailGenerator class uses @mlflow.trace decorator
-  # Here's a simplified version showing the key tracing implementation:
-+ # 🔍 TRACING: Add decorator to trace your function
-+ @mlflow.trace  # [MANUAL-TRACE] Captures inputs, outputs, and timing
-  def generate_email(customer_data: dict) -> Dict[str, Any]:
-      """Generate email with MLflow tracing enabled."""
-      # Set application version for tracking
-      set_app_version()
+  # Example: Coach asks about 3rd down tendencies
+  question = "What do the Cowboys do on 3rd and 6?"
 
-      # Create messages for the LLM
-      messages = _create_messages(customer_data)
++ # 🔍 TRACING: Agent.predict() creates a trace automatically
+  response = agent.predict({"input": [{"role": "user", "content": question}]})
 
-      # Call OpenAI (automatically traced by mlflow.openai.autolog())
-      response = openai_client.chat.completions.create(
-          model=LLM_MODEL,
-          messages=messages,
-      )
++ # 🔍 TRACING: Get the trace ID from the active trace
++ trace_id = mlflow.get_current_active_trace().info.request_id
 
-      # Process the response
-      response_content = response.choices[0].message.content
-      clean_string = _clean_json_response(response_content)
-      email_json = json.loads(clean_string)
+  print(f"Analysis complete. Trace ID: {trace_id}")
 
-+     # 🔍 TRACING: Get trace ID to link feedback
-+     email_json['trace_id'] = _get_current_trace_id()  # [TRACE-ID]
-
-      return email_json
-
-  # Usage example - Now uses customer name and user input instead of full customer data
-  customer_name = sample_customer["account"]["name"]
-  user_input = sample_customer.get("user_input")
-  result = email_generator.generate_email_with_retrieval(customer_name, user_input)
-  print(f'Email generated with trace_id: {result.get("trace_id")}')`;
+  # The trace captures:
+  # - RETRIEVER: Tool call to who_got_ball_by_down_distance("Cowboys", [2024], 3, "medium")
+  # - PARSER: Data formatting and aggregation
+  # - LLM: Final synthesis and recommendations`;
 
 const userFeedbackCode = `\`\`\`diff
   import mlflow
@@ -303,7 +305,12 @@ The diff below shows how to add advanced tracing features:`}
 
   const { data: preloadedResultsData, isLoading: isPreloadedResultsLoading } =
     useQueryPreloadedResults();
+  const { data: experimentData, isLoading: isExperimentLoading } =
+    useQueryExperiment();
   const preloadedTraceUrl = preloadedResultsData?.sample_trace_url;
+
+  // Build fallback traces URL from experiment data if sample trace URL isn't available
+  const tracesListUrl = experimentData?.link;
 
   const demoSection = (
     <div className="space-y-8">
@@ -321,17 +328,18 @@ The diff below shows how to add advanced tracing features:`}
         <div className="ml-11 space-y-3">
           <p className="text-muted-foreground">
             Start by viewing a pre-generated example to see how traces capture
-            email generation and user feedback.
+            DC analysis and user feedback.
           </p>
 
           <div className="p-4 bg-muted/30 rounded-lg border">
             <Button
               variant="open_mlflow_ui"
               size="lg"
-              disabled={isPreloadedResultsLoading || !preloadedTraceUrl}
-              onClick={() =>
-                preloadedTraceUrl && window.open(preloadedTraceUrl, "_blank")
-              }
+              disabled={isPreloadedResultsLoading && isExperimentLoading}
+              onClick={() => {
+                const url = preloadedTraceUrl || tracesListUrl;
+                if (url) window.open(url, "_blank");
+              }}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
               View sample trace
@@ -340,22 +348,91 @@ The diff below shows how to add advanced tracing features:`}
         </div>
       </div>
 
-      {/* Step 2: Try Interactive Demo */}
+      {/* Step 2: Try Interactive Demo - Single Question */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 bg-green-100 text-green-600 rounded-full font-semibold text-sm">
             2
           </div>
-          <h3 className="text-lg font-semibold">Try the interactive demo</h3>
+          <h3 className="text-lg font-semibold">Try the interactive demo - Single question</h3>
         </div>
 
         <div className="ml-11 space-y-4">
           <p className="text-muted-foreground">
-            Generate your own email and provide feedback. Then view the
-            resulting MLflow trace with your feedback attached.
+            Configure a question about opponent tendencies and watch the agent call Unity Catalog tools.
+            See which functions are invoked and how the data flows through the trace.
           </p>
 
-          <EmailGenerator />
+          <DcTracingDemo />
+        </div>
+      </div>
+
+      {/* Step 3: Multi-Tool Questions */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 bg-orange-100 text-orange-600 rounded-full font-semibold text-sm">
+            3
+          </div>
+          <h3 className="text-lg font-semibold">
+            Multi-tool questions
+          </h3>
+        </div>
+
+        <div className="ml-11 space-y-4">
+          <p className="text-muted-foreground">
+            Some coaching questions require combining data from multiple sources. Watch how the
+            agent orchestrates multiple Unity Catalog function calls to build comprehensive answers,
+            and see how MLflow traces capture the entire execution flow.
+          </p>
+
+          <MultiToolDemo />
+        </div>
+      </div>
+
+      {/* Step 4: Multi-Turn Conversations */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 bg-purple-100 text-purple-600 rounded-full font-semibold text-sm">
+            4
+          </div>
+          <h3 className="text-lg font-semibold">
+            Explore multi-turn conversations with session tracking
+          </h3>
+        </div>
+
+        <div className="ml-11 space-y-4">
+          <p className="text-muted-foreground">
+            Real coaching conversations aren't single questions—they involve follow-ups that
+            build on previous context. See how MLflow groups related turns together in a
+            single session trace, making it easy to understand and debug conversational flows.
+          </p>
+
+          <MultiTurnDemo />
+        </div>
+      </div>
+
+      {/* Step 5: Question Tester */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 bg-yellow-100 text-yellow-600 rounded-full font-semibold text-sm">
+            5
+          </div>
+          <h3 className="text-lg font-semibold">
+            Question Tester
+          </h3>
+          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+            Testing Only
+          </span>
+        </div>
+
+        <div className="ml-11 space-y-4">
+          <p className="text-muted-foreground">
+            Free-form multi-turn chat for curating session-level evaluation questions.
+            Type any question, send it, and continue the conversation. Hit "New Session"
+            to start a fresh chain of thought.
+          </p>
+
+          <QuestionTester />
         </div>
       </div>
     </div>
@@ -363,8 +440,8 @@ The diff below shows how to add advanced tracing features:`}
 
   return (
     <StepLayout
-      title="Observability with Tracing"
-      description="Implement MLflow Tracing for observability and debugging"
+      title="Observe DC Analysis with Tracing"
+      description="See how MLflow captures tool calls, data queries, and agent reasoning"
       intro={introSection}
       codeSection={codeSection}
       demoSection={demoSection}

@@ -1,0 +1,40 @@
+# DC Assistant - Judge Alignment & Prompt Optimization Pipeline
+
+resources:
+  jobs:
+    dc_assistant_alignment:
+      name: "DC Assistant - Alignment Pipeline"
+      description: "Runs Judge Alignment and Prompt Optimization after labeling is complete"
+      
+      # Schedule: Daily at 8 AM Pacific
+      # The notebooks should check for NEW labels since last run
+      schedule:
+        quartz_cron_expression: "0 0 8 * * ?"
+        timezone_id: "America/Los_Angeles"
+        pause_status: PAUSED  # Enable when ready
+      
+      email_notifications:
+        on_failure:
+          - wesley.pasfield@databricks.com
+      
+      tasks:
+        - task_key: judge_alignment
+          notebook_task:
+            notebook_path: ${var.notebook_root}/05-JudgeAlignment
+            source: WORKSPACE
+          environment_key: default_environment
+          timeout_seconds: 7200
+
+        - task_key: prompt_optimization
+          depends_on:
+            - task_key: judge_alignment
+          notebook_task:
+            notebook_path: ${var.notebook_root}/06-PromptOptimization
+            source: WORKSPACE
+          environment_key: default_environment
+          timeout_seconds: 7200
+
+      environments:
+        - environment_key: default_environment
+          spec:
+            client: "1"

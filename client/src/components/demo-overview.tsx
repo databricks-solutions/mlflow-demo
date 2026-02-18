@@ -22,36 +22,53 @@ import {
 import { getPathFromViewType, ViewType } from "@/routes";
 
 const introContent = `
-Delivering business value with GenAI requires answering these questions:
-1. Is my agent producing accurate answers?
-2. How do I improve my agent's accuracy?
-3. Is my agent fast and cost effective?
+Organizations are rapidly adopting GenAI, but **the real challenge isn't just deploying AI agents—it's building high-quality agents that deliver reliable, domain-specific value**.
 
-We know how to deliver reliable software, but GenAI's non-deterministic nature makes it difficult to directly apply software development best practices:
-1. User inputs evolve without warning
-2. Human expertise required to assess output quality
-3. Must trade-off between quality & cost/latency
+**The key to high-quality agents is rigorous evaluation and continuous monitoring** to iteratively improve your system. **MLflow has research-backed methods baked into the underlying product** that make **domain-specific evaluation dramatically easier**. You don't need expensive fine-tuning pipelines or hundreds of labeled examples—**MLflow enables you to align judges and optimize prompts with as few as 2-10 expert feedback examples**, learning from the dense information in natural language feedback rather than relying solely on scalar labels.
 
-MLflow enables you to apply software development best practices to evaluate and monitor GenAI application quality:
+**MLflow 3.0+ provides the complete toolkit**: **proper evaluation frameworks** and **ongoing monitoring** to systematically improve agent quality through domain expert feedback—**at up to 100× lower latency and 10× lower cost** compared to traditional optimization approaches.
 
 ![MLflow SLDC](https://i.imgur.com/T0uM1No.gif)
 
 ## What you will see
 
-- **Implement MLflow Tracing** to observe and debug your GenAI app
-- **Customize MLflow's LLM judges** to create quality evaluation criteria that align with business requirements and your domain expert's judgement
-- **Create MLflow Evaluation Datasets** to curate production traces into test suites
-- **Use MLflow's Evaluation SDK** to iteratively test changes and check for regressions
-- **Use MLflow Prompt Registry and App Versioning** to link versions to quality evaluations
-- **Use Databricks AI/BI** to link GenAI observability and evaluation metrics to business KPIs
+- **Implement MLflow Tracing** to observe and debug your GenAI agent behavior
+- **Create custom LLM judges** that align with your **domain-specific quality standards** and business requirements
+- **Collect ground truth labels** from domain experts via MLflow Labeling Sessions
+- **Automatically align judges to expert feedback** using SIMBA/MemAlign optimizers—**scaling domain expertise without manual tuning**
+- **Optimize prompts automatically** with GEPA guided by aligned judges—**achieving competitive or better quality without brittle manual engineering**
+- **Build self-optimizing systems** where expert feedback continuously improves AI quality
 
 ![MLflow GenAI Demo](https://i.imgur.com/MXhaayF.gif)
 `;
 
 const businessChallenges = `
-## Sales Email Generation
+## NFL Defensive Coordinator Assistant
 
-We'll create a sales email generation system that helps account managers create personalized customer emails.  The goal is to drive business KPIs such as sales efficiency, response rate, and revenue generated.
+We'll build a **self-optimizing assistant** that helps defensive coordinators analyze opponent tendencies and plan game strategies. The agent uses **Unity Catalog tools** to query play-by-play data and provides contextualized recommendations.
+
+### The Challenge
+
+**Generic LLM judges** and **static, verbose prompts** fail to capture domain-specific nuance. The LLM judge isn't wrong per se—it's evaluating against **generic best practices**. But SMEs are evaluating against **domain-specific standards**, shaped by business objectives, internal policies, and hard-won lessons from production incidents.
+
+Determining what makes an NFL defensive analysis "good" requires deep football knowledge: coverage schemes, formation tendencies, situational context, and strategic value—**knowledge unlikely to be part of an LLM's background knowledge**.
+
+**Two critical problems prevent quality at scale:**
+1. **Generic evaluations** miss the specialized expertise that defines quality in your domain
+2. **Prompt engineering is brittle and doesn't scale**—you'll quickly hit context limits, introduce contradictions, and spend weeks on edge cases
+
+### The Solution
+
+A **self-optimizing architecture** where **coaching expertise continuously improves AI quality**:
+
+![DC Assistant Solution Architecture](/dc-assistant-solution.png)
+
+- **Coaches provide feedback** on agent outputs via **MLflow Labeling Sessions**
+- **MLflow aligns judges** to match coaching preferences using **SIMBA/MemAlign optimizer**—learning from **small amounts of natural language feedback** instead of hundreds of labels
+- **System automatically optimizes prompts** guided by aligned judges using **GEPA optimizer**
+- **Agent improves without manual prompt engineering**—achieving competitive or better quality at **up to 100× lower latency and 10× lower cost**
+
+This demo shows how to build **AI systems that encode domain expertise** and **improve continuously** as they're used.
 `;
 
 export function DemoOverview() {
@@ -59,51 +76,51 @@ export function DemoOverview() {
   const steps = [
     {
       number: 1,
-      title: "Observe with tracing",
+      title: "Observe DC Analysis",
       icon: FlaskConical,
       description:
-        "Add observability to your GenAI app so you can see what's happening and collect user feedback",
-      keyFeatures: [],
+        "Capture agent behavior with MLflow tracing: see tool calls, data queries, and final recommendations",
+      keyFeatures: ["MLflow Tracing", "Tool call tracking", "Span visualization"],
     },
     {
       number: 2,
-      title: "Create quality metrics",
+      title: "Evaluate Recommendations",
       icon: Target,
       description:
-        "Scale your expert's judgment using MLflow's LLM judges to create automated quality metrics",
-      keyFeatures: [],
+        "Create domain-specific LLM judges for defensive coordinator recommendations: relevance, football language, strategic value",
+      keyFeatures: ["Custom judges", "Domain-specific criteria", "Third-party judges"],
     },
     {
       number: 3,
-      title: "Find & fix quality issues",
+      title: "Collect Ground Truth Labels",
       icon: TrendingUp,
       description:
-        "Use production traces and actual user data with evaluation metrics to iteratively test quality fixes",
-      keyFeatures: [],
+        "Collect expert coaching feedback via MLflow Labeling Sessions to create labeled datasets for judge alignment",
+      keyFeatures: ["Labeling Sessions", "Expert feedback", "Trace linking"],
     },
     {
       number: 4,
-      title: "Production Monitoring",
-      icon: Activity,
+      title: "Align Judges to Experts",
+      icon: BarChart3,
       description:
-        "Monitor GenAI quality in production with intelligent sampling",
-      keyFeatures: [],
+        "Automatically calibrate judges to match coaching expertise using SIMBA/MemAlign—scale domain knowledge without manual tuning",
+      keyFeatures: ["SIMBA/MemAlign optimizer", "Judge alignment", "Small data learning"],
     },
     {
       number: 5,
-      title: "Human Review",
-      icon: UserCheck,
+      title: "Optimize Prompts",
+      icon: Activity,
       description:
-        "Collect expert feedback through an intuitive UI to systematically improve GenAI quality",
-      keyFeatures: [],
+        "Automatically improve prompts with GEPA optimizer guided by aligned judges—no brittle manual prompt engineering",
+      keyFeatures: ["GEPA optimizer", "Automatic optimization", "Prompt registry"],
     },
     {
       number: 6,
-      title: "Link to business KPIs",
-      icon: BarChart3,
+      title: "Continuous Loop",
+      icon: Users,
       description:
-        "Create business dashboards and link to KPIs using MLflow data stored in Delta Tables",
-      keyFeatures: [],
+        "Self-optimizing cycle: coaches use the assistant, provide feedback, judges align, prompts improve automatically—continuous quality improvement",
+      keyFeatures: ["Full automation", "Continuous improvement", "Compound gains"],
     },
   ];
 
@@ -131,8 +148,8 @@ export function DemoOverview() {
           Interactive Demo Walkthrough
         </h3>
         <p className="text-muted-foreground mb-6">
-          Follow these steps to learn MLflow GenAI evaluation best practices
-          through hands-on examples.
+          Follow these steps to learn <strong>MLflow's approach to building high-quality agents</strong> through
+          <strong>proper evaluation</strong> and <strong>continuous monitoring</strong>.
         </p>
       </div>
 
@@ -181,9 +198,11 @@ export function DemoOverview() {
                         2: "step2-evaluation",
                         3: "step3-improvement",
                         4: "step4-kpis",
+                        5: "step5-monitoring",
+                        6: "step6-human-review",
                       };
                       const viewType =
-                        routes[step.number] || "step5-prompt-registry";
+                        routes[step.number] || "step1-tracing";
                       navigate(getPathFromViewType(viewType));
                     }}
                   >
@@ -211,9 +230,10 @@ export function DemoOverview() {
               demo with:
             </p>
             <ul className="list-disc list-inside space-y-1 ml-4">
-              <li>Pre-configured MLflow experiment with sample data</li>
-              <li>Working email generation system with fake customer data</li>
-              <li>Live evaluation metrics and evaluation examples</li>
+              <li>Pre-configured MLflow experiment with sample traces</li>
+              <li>Working DC Assistant with NFL play-by-play data</li>
+              <li>Live evaluation metrics and judge examples</li>
+              <li>Coaching feedback and prompt optimization workflows</li>
             </ul>
           </div>
         </CardContent>
@@ -224,13 +244,13 @@ export function DemoOverview() {
         <Button
           size="lg"
           className="px-8"
-          onClick={() => navigate(getPathFromViewType("step1-tracing"))}
+          onClick={() => navigate(getPathFromViewType("dc-assistant"))}
         >
-          Start Step 1: Observe with Tracing
+          Try the DC Assistant
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
         <p className="text-sm text-muted-foreground mt-2">
-          Begin your MLflow GenAI evaluation journey
+          Ask questions about opponent tendencies and see MLflow tracing in action
         </p>
       </div>
     </div>
@@ -244,13 +264,12 @@ export function DemoOverview() {
       {/* Header */}
       <div className="border-b bg-background/95 p-6">
         <h1 className="text-3xl font-bold tracking-tight">
-          MLflow GenAI Monitoring & Evaluation Demo
+          Self-Optimizing AI: NFL Defensive Coordinator Assistant
         </h1>
         <p className="text-muted-foreground mt-2">
-          This interactive demo showcases how to use MLflow to build
-          high-quality GenAI applications that follow software development best
-          practices: unit tests and production monitoring that measure{" "}
-          <b>quality</b>.
+          Learn how to build <strong>high-quality AI agents</strong> that <strong>continuously improve through domain expert feedback</strong>.
+          This demo shows MLflow's full optimization cycle: <strong>observability with tracing</strong>, <strong>evaluation with custom LLM judges</strong>,
+          <strong>judge alignment to expert feedback</strong>, and <strong>automatic prompt optimization</strong>.
         </p>
       </div>
 

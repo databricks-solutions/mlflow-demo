@@ -1,0 +1,13 @@
+bundle:
+  name: dc_assistant
+
+workspace:
+  host: https://e2-demo-field-eng.cloud.databricks.com
+
+variables:
+  notebook_root:
+    description: "Root path for notebooks in Databricks workspace"
+    default: /Users/wesley.pasfield@databricks.com/dc-assistant-agent
+
+include:
+  - resources/*.yml

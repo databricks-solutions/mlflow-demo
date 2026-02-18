@@ -8,320 +8,53 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
 import {
   ExternalLink,
   Plus,
   Target,
   Award,
-  TrendingUp,
   Trash2,
   Loader2,
+  CheckCircle2,
+  Play,
 } from "lucide-react";
 import { useQueryPreloadedResults } from "@/queries/useQueryPreloadedResults";
+import { useQueryExperiment } from "@/queries/useQueryTracing";
 import { NotebookReference } from "@/components/notebook-reference";
+import {
+  builtinJudgesCode, customJudgesCode, customCodeMetricsCode,
+  SAMPLE_EVAL_QUESTIONS, introContent, INITIAL_GUIDELINES,
+} from "./eval-code-snippets";
+import { MultiTurnEvaluation } from "./multi-turn-evaluation";
 
-const introContent = `
-# LLM Judges: Scale Your Human Expertise
-
-LLM judges are AI-powered quality assessment tools that scale human expertise to evaluate GenAI quality automatically - in development and production. They assess semantic correctness, style, safety, and relative quality - answering questions like "Does this answer correctly?" and "Is this appropriate for our brand?"
-
-MLflow has 2 flavors of judges:
-- **Built-in Judges** - Research-backed judges for safety, hallucination, retrieval quality, and relevance
-- **Custom Judges** - Tune our research-backed LLM judges to your business needs and human expert judgment
-
-MLflow also supports *custom code-based metrics*, so if the built-in judges don't fit your use case, you can write your own.
-
-The same judges can be used to both evaluate quality in development and monitor quality in production.
-
-![demo-eval](https://i.imgur.com/M3kLBHF.gif)
-`;
-
-const builtinJudgesCode = `import mlflow
-import mlflow.genai
-from mlflow.genai.scorers import Guidelines, RelevanceToQuery, Safety
-from mlflow_demo.agent.email_generator import EmailGenerator
-from datetime import datetime
-
-# Create instances of applicable built-in judges
-builtin_scorers = [
-    RelevanceToQuery(),
-    Safety(),
-]
-
-print("✅ Created built-in scorers for our use case:")
-for scorer in builtin_scorers:
-    print(f"   - {scorer.__class__.__name__}")
-
-# Load recent production traces for evaluation
-traces = mlflow.search_traces(
-    max_results=5,
-    filter_string='attributes.status = "OK" and tags.sample_data = "yes"',
-    order_by=['attributes.timestamp_ms DESC']
-)
-
-# Define prediction function for evaluation
-def predict_fn(customer_data: dict):
-    """Generate email for evaluation - uses current production prompt"""
-    generator = EmailGenerator()
-    customer_name = customer_data["account"]["name"]
-    user_input = customer_data.get("user_input")
-    return generator.generate_email_with_retrieval(customer_name, user_input)
-
-# Run the evaluation
-with mlflow.start_run(
-    run_name=f'{datetime.now().strftime("%Y%m%d_%H%M%S")}_quality_metrics_demo'
-) as run:
-    results = mlflow.genai.evaluate(
-        data=traces,
-        predict_fn=predict_fn,
-        scorers=builtin_scorers,
-    )
-    run_id = run.info.run_id
-
-print(f"✅ Evaluation completed! Run ID: {run_id}")`;
-
-const customJudgesCode = `import mlflow
-from mlflow.genai.scorers import Guidelines
-
-# Define custom guidelines for email quality
-custom_guidelines = [
-    {
-        "name": "accuracy",
-        "guideline": """The response correctly references all factual information from the provided_info based on these rules:
-- All factual information must be directly sourced from the provided data with NO fabrication
-- Names, dates, numbers, and company details must be 100% accurate with no errors
-- Meeting discussions must be summarized with the exact same sentiment and priority as presented in the data
-- Support ticket information must include correct ticket IDs, status, and resolution details when available
-- All product usage statistics must be presented with the same metrics provided in the data
-- No references to CloudFlow features, services, or offerings unless specifically mentioned in the customer data
-- AUTOMATIC FAIL if any information is mentioned that is not explicitly provided in the data"""
-    },
-    {
-        "name": "personalized",
-        "guideline": """The response demonstrates clear personalization based on the provided_info based on these rules:
-- Email must begin by referencing the most recent meeting/interaction
-- Immediately next, the email must address the customer's MOST pressing concern as evidenced in the data
-- Content structure must be customized based on the account's health status (critical issues first for "Fair" or "Poor" accounts)
-- Industry-specific language must be used that reflects the customer's sector
-- Recommendations must ONLY reference features that are:
-  a) Listed as "least_used_features" in the data, AND
-  b) Directly related to the "potential_opportunity" field
-- Relationship history must be acknowledged (new vs. mature relationship)
-- Deal stage must influence communication approach (implementation vs. renewal vs. growth)
-- AUTOMATIC FAIL if recommendations could be copied to another customer in a different situation"""
-    },
-    {
-        "name": "relevance",
-        "guideline": """The response prioritizes content that matters to the recipient in the provided_info based on these rules:
-- Critical support tickets (status="Open (Critical)") must be addressed after the greeting, reference to the most recent interaction, any pleasantries, and references to closed tickets
-- Time-sensitive action items must be addressed before general updates
-- Content must be ordered by descending urgency as defined by:
-  1. Critical support issues
-  2. Action items explicitly stated in most recent meeting
-  3. Upcoming renewal if within 30 days
-  4. Recently resolved issues
-  5. Usage trends and recommendations
-- No more than ONE feature recommendation for accounts with open critical issues
-- No mentions of company news, product releases, or success stories not directly requested by the customer
-- No calls to action unrelated to the immediate needs in the data
-- AUTOMATIC FAIL if the email requests a meeting without being tied to a specific action item or opportunity in the data"""
-    }
-]
-
-# Create Guidelines scorers
-custom_scorers = [
-    Guidelines(name=g["name"], guidelines=g["guideline"])
-    for g in custom_guidelines
-]
-
-# Combine all scorers
-all_scorers = builtin_scorers + custom_scorers
-
-# Run evaluation with combined scorers
-results = mlflow.genai.evaluate(
-    data=traces,
-    predict_fn=predict_fn,
-    scorers=all_scorers,
-)
-`;
-
-const customCodeMetricsCode = `import mlflow
-from mlflow.entities import Feedback, Trace
-from mlflow.genai.scorers import scorer
-
-@scorer
-def tool_call_efficiency(trace: Trace) -> Feedback:
-    """Evaluate how effectively the app uses tools"""
-    # Retrieve all tool call spans from the trace
-    tool_calls = trace.search_spans(span_type="TOOL")
-
-    if not tool_calls:
-        return Feedback(
-            value=None,
-            rationale="No tool usage to evaluate"
-        )
-
-    # Check for redundant calls
-    tool_names = [span.name for span in tool_calls]
-    if len(tool_names) != len(set(tool_names)):
-        return Feedback(
-            value=False,
-            rationale=f"Redundant tool calls detected: {tool_names}"
-        )
-
-    # Check for errors
-    failed_calls = [s for s in tool_calls if s.status.status_code != "OK"]
-    if failed_calls:
-        return Feedback(
-            value=False,
-            rationale=f"{len(failed_calls)} tool calls failed"
-        )
-
-    return Feedback(
-        value=True,
-        rationale=f"Efficient tool usage: {len(tool_calls)} successful calls"
-    )
-
-# Run eval on the last 5 production traces
-traces = mlflow.search_traces(max_results=5, order_by=['attributes.timestamp_ms DESC'])
-
-mlflow.genai.evaluate(
-    data=traces,
-    # your application's prediction function
-    predict_fn=email_generation_app,
-    scorers=[tool_call_efficiency],
-)
-`;
-
-const judgeValidationCode = `import mlflow
-import pandas as pd
-from sklearn.metrics import cohen_kappa_score, accuracy_score
-
-# Step 1: Run judges on evaluation dataset with human labels
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset_with_human_labels,
-    predict_fn=email_generation_app,
-    scorers=[
-        professionalism_scorer,
-        brand_voice_scorer,
-        RelevanceToQuery(),
-        Safety()
-    ]
-)
-
-# Step 2: Compare judge scores to human ratings for alignment
-def validate_judge_accuracy(eval_results, human_labels_df):
-    """Check how well judges align with human expert ratings."""
-
-    # Extract judge scores and human ratings
-    judge_scores = eval_results.metrics
-    human_ratings = human_labels_df
-
-    alignment_metrics = {}
-
-    for judge_name in ['professionalism', 'brand_voice', 'relevance', 'safety']:
-        # Convert scores to binary (pass/fail) for comparison
-        judge_binary = (judge_scores[f'{judge_name}_score'] >= 3).astype(int)
-        human_binary = (human_ratings[f'human_{judge_name}'] >= 3).astype(int)
-
-        # Calculate agreement metrics
-        kappa = cohen_kappa_score(human_binary, judge_binary)
-        accuracy = accuracy_score(human_binary, judge_binary)
-
-        alignment_metrics[judge_name] = {
-            'kappa': kappa,
-            'accuracy': accuracy,
-            'human_avg': human_ratings[f'human_{judge_name}'].mean(),
-            'judge_avg': judge_scores[f'{judge_name}_score'].mean()
-        }
-
-        print(f"{judge_name.title()} Judge Alignment:")
-        print(f"  Cohen's Kappa: {kappa:.3f} (>0.6 is good agreement)")
-        print(f"  Accuracy: {accuracy:.3f}")
-        print(f"  Human avg: {human_ratings[f'human_{judge_name}'].mean():.2f}")
-        print(f"  Judge avg: {judge_scores[f'{judge_name}_score'].mean():.2f}\n")
-
-    return alignment_metrics
-
-# Step 3: Identify areas for guideline refinement
-def suggest_guideline_improvements(alignment_metrics, threshold=0.6):
-    """Suggest which judges need guideline tuning."""
-
-    needs_tuning = []
-    for judge_name, metrics in alignment_metrics.items():
-        if metrics['kappa'] < threshold:
-            needs_tuning.append({
-                'judge': judge_name,
-                'kappa': metrics['kappa'],
-                'issue': 'Low agreement with humans',
-                'suggestion': 'Refine guidelines to be more specific and measurable'
-            })
-
-        # Check for systematic bias
-        score_diff = abs(metrics['human_avg'] - metrics['judge_avg'])
-        if score_diff > 1.0:
-            needs_tuning.append({
-                'judge': judge_name,
-                'score_diff': score_diff,
-                'issue': 'Systematic scoring bias',
-                'suggestion': 'Adjust judge calibration or guideline strictness'
-            })
-
-    return needs_tuning
-
-# Step 4: Iterative refinement workflow
-def iterative_judge_refinement():
-    """Workflow for continuously improving judge-human alignment."""
-
-    print("Judge Validation Workflow:")
-    print("1. Run judges on evaluation set with human labels")
-    print("2. Calculate agreement metrics (Cohen's Kappa, accuracy)")
-    print("3. Identify judges with low human alignment (<0.6 kappa)")
-    print("4. Refine guidelines based on disagreement patterns")
-    print("5. Re-run evaluation and measure improvement")
-    print("6. Repeat until satisfactory alignment achieved")
-
-    # Example: Updated guidelines after human feedback
-    refined_professionalism_guidelines = """
-    ## Refined Email Professionalism Guidelines
-
-    ### Tone Requirements (Based on Human Feedback)
-    - Use formal business language for enterprise customers (>1000 employees)
-    - Use friendly but professional tone for SMB customers (<1000 employees)
-    - Avoid contractions in first contact emails
-    - Match customer's communication style from previous interactions
-
-    ### Specific Pass/Fail Criteria
-    - PASS: Addresses customer by correct name and title
-    - PASS: References specific recent interaction or context
-    - FAIL: Uses generic greetings like "Dear Valued Customer"
-    - FAIL: Includes placeholder text or template artifacts
-    """
-
-    return refined_professionalism_guidelines
-
-# Run validation
-alignment_results = validate_judge_accuracy(eval_results, human_labels_df)
-tuning_suggestions = suggest_guideline_improvements(alignment_results)`;
 
 export function EvaluationBuilder() {
   const [builtinJudges, setBuiltinJudges] = React.useState([
     {
       name: "RelevanceToQuery",
       description: "Does the response directly address the user's input?",
-      enabled: false,
+      enabled: true,
     },
     {
       name: "Safety",
       description: "Does the response avoid harmful or toxic content?",
+      enabled: true,
+    },
+    {
+      name: "ToolCallCorrectness",
+      description: "Are the tool calls and arguments correct for the user query?",
+      enabled: true,
+    },
+    {
+      name: "ToolCallEfficiency",
+      description: "Are the tool calls efficient without redundancy?",
       enabled: true,
     },
     {
@@ -330,7 +63,7 @@ export function EvaluationBuilder() {
       enabled: false,
       disabled: true,
       disabledReason:
-        "This judge is designed for apps with a retrieval step, which doesn't apply to this demo",
+        "The DC Assistant uses Unity Catalog SQL functions (not a vector search index) to retrieve data. If this agent used a vector search index for retrieval, this judge would measure whether the response is grounded in the retrieved documents.",
     },
     {
       name: "RetrievalRelevance",
@@ -338,7 +71,7 @@ export function EvaluationBuilder() {
       enabled: false,
       disabled: true,
       disabledReason:
-        "This judge is designed for apps with a retrieval step, which doesn't apply to this demo",
+        "The DC Assistant uses Unity Catalog SQL functions (not a vector search index) to retrieve data. If this agent used vector search, this judge would measure whether the retrieved documents are relevant to the query.",
     },
     {
       name: "Correctness",
@@ -346,73 +79,122 @@ export function EvaluationBuilder() {
       enabled: false,
       disabled: true,
       disabledReason:
-        "This judge is designed for use with human labeled ground truth answers, which doesn't apply to this demo.",
+        "Requires a human-labeled ground truth dataset. If we had coaching staff label \"correct\" answers for common questions, this judge would compare the agent's response against those ground truths.",
     },
     {
       name: "RetrievalSufficiency",
       description:
         "Do the retrieved documents contain all necessary information in the ground truth answer?",
       disabledReason:
-        "This judge is designed for use with human labeled ground truth answers AND a retrieval step, which doesn't apply to this demo.",
+        "Requires both a vector search retrieval step and human-labeled ground truth answers, neither of which apply to this demo.",
       enabled: false,
       disabled: true,
     },
   ]);
 
-  const [guidelines, setGuidelines] = React.useState([
-    {
-      id: "accuracy",
-      name: "accuracy",
-      content: `The response correctly references all factual information from the provided_info based on these rules:
-- All factual information must be directly sourced from the provided data with NO fabrication
-- Names, dates, numbers, and company details must be 100% accurate with no errors
-- Meeting discussions must be summarized with the exact same sentiment and priority as presented in the data
-- Support ticket information must include correct ticket IDs, status, and resolution details when available
-- All product usage statistics must be presented with the same metrics provided in the data
-- No references to CloudFlow features, services, or offerings unless specifically mentioned in the customer data
-- AUTOMATIC FAIL if any information is mentioned that is not explicitly provided in the data`,
-    },
-    {
-      id: "personalized",
-      name: "personalized",
-      content: `The response demonstrates clear personalization based on the provided_info based on these rules:
-- Email must begin by referencing the most recent meeting/interaction
-- Immediatly next, the email must address the customer's MOST pressing concern as evidenced in the data
-- Content structure must be customized based on the account's health status (critical issues first for "Fair" or "Poor" accounts)
-- Industry-specific language must be used that reflects the customer's sector
-- Recommendations must ONLY reference features that are:
-  a) Listed as "least_used_features" in the data, AND
-  b) Directly related to the "potential_opportunity" field
-- Relationship history must be acknowledged (new vs. mature relationship)
-- Deal stage must influence communication approach (implementation vs. renewal vs. growth)
-- AUTOMATIC FAIL if recommendations could be copied to another customer in a different situation`,
-    },
-    {
-      id: "relevance",
-      name: "relevance",
-      content: `The response prioritizes content that matters to the recipient in the provided_info based on these rules:
-- Critical support tickets (status="Open (Critical)") must be addressed after the greeting, reference to the most recent interaction, any pleasantrys, and references to closed tickets
-    - it is ok if they name is slightly different as long as it is clearly the same issue as in the provided_info
-- Time-sensitive action items must be addressed before general updates
-- Content must be ordered by descending urgency as defined by:
-  1. Critical support issues
-  2. Action items explicitly stated in most recent meeting
-  3. Upcoming renewal if within 30 days
-  4. Recently resolved issues
-  5. Usage trends and recommendations
-- No more than ONE feature recommendation for accounts with open critical issues
-- No mentions of company news, product releases, or success stories not directly requested by the customer
-- No calls to action unrelated to the immediate needs in the data
-- AUTOMATIC FAIL if the email requests a meeting without being tied to a specific action item or opportunity in the data`,
-    },
-  ]);
+  const [guidelines, setGuidelines] = React.useState(INITIAL_GUIDELINES);
 
-  const [humanAlignment, setHumanAlignment] = React.useState([
-    { judge: "Professionalism", kappa: 0.78, accuracy: 0.85, status: "good" },
-    { judge: "Brand Voice", kappa: 0.65, accuracy: 0.72, status: "good" },
-    { judge: "Relevance", kappa: 0.45, accuracy: 0.68, status: "needs_tuning" },
-    { judge: "Safety", kappa: 0.92, accuracy: 0.95, status: "excellent" },
-  ]);
+  // Evaluation run state
+  const [isEvalRunning, setIsEvalRunning] = React.useState(false);
+  const [evalHasRun, setEvalHasRun] = React.useState(false);
+  const [evalProgress, setEvalProgress] = React.useState(0);
+  const [evalProgressMessage, setEvalProgressMessage] = React.useState("");
+  const [evalError, setEvalError] = React.useState<string | null>(null);
+
+  // Ref to hold the progress interval so we can clear it on completion
+  const progressIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const PROGRESS_MESSAGES = [
+    { threshold: 0, message: "Loading agent and scorers..." },
+    { threshold: 10, message: "Running agent on evaluation questions..." },
+    { threshold: 25, message: "Agent generating responses (this may take a few minutes)..." },
+    { threshold: 45, message: "Scoring responses with built-in judges..." },
+    { threshold: 65, message: "Scoring responses with custom Guidelines judges..." },
+    { threshold: 80, message: "Aggregating results..." },
+  ];
+
+  const getProgressMessage = (pct: number) => {
+    for (let i = PROGRESS_MESSAGES.length - 1; i >= 0; i--) {
+      if (pct >= PROGRESS_MESSAGES[i].threshold) return PROGRESS_MESSAGES[i].message;
+    }
+    return PROGRESS_MESSAGES[0].message;
+  };
+
+  const runEvaluation = async () => {
+    setIsEvalRunning(true);
+    setEvalHasRun(false);
+    setEvalProgress(0);
+    setEvalProgressMessage("Loading agent and scorers...");
+    setEvalError(null);
+
+    // Simulate progress on the frontend while backend runs
+    // Slowly fills to ~85%, then waits for the real "done" event
+    progressIntervalRef.current = setInterval(() => {
+      setEvalProgress((prev) => {
+        if (prev >= 85) return prev; // Cap at 85% until backend confirms done
+        const next = prev + 1;
+        setEvalProgressMessage(getProgressMessage(next));
+        return next;
+      });
+    }, 2000);
+
+    const enabledBuiltin = builtinJudges
+      .filter((j) => j.enabled && !j.disabled)
+      .map((j) => j.name);
+    const customGuidelines = guidelines
+      .filter((g) => g.name.trim() !== "")
+      .map((g) => ({ name: g.name, guideline: g.content }));
+
+    try {
+      const response = await fetch("/api/evaluation/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          builtin_judges: enabledBuiltin,
+          custom_guidelines: customGuidelines,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("No response body");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === "done") {
+                if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                setEvalProgress(100);
+                setEvalProgressMessage("Evaluation complete!");
+                setEvalHasRun(true);
+                setIsEvalRunning(false);
+              } else if (data.type === "error") {
+                if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                setEvalError(data.error);
+                setIsEvalRunning(false);
+              }
+            } catch (e) {
+              console.error("Failed to parse SSE:", e);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      setEvalError(err.message || "Evaluation failed");
+      setIsEvalRunning(false);
+    }
+  };
 
   // Helper functions for managing guidelines
   const addGuideline = () => {
@@ -502,11 +284,64 @@ export function EvaluationBuilder() {
 
   const { data: preloadedResultsData, isLoading: isPreloadedResultsLoading } =
     useQueryPreloadedResults();
-  const preloadedResultsUrl = preloadedResultsData?.metrics_result_url;
+  const { data: experimentData, isLoading: isExperimentLoading } =
+    useQueryExperiment();
+
+  // Build evaluation-runs URL from experiment data
+  const evaluationRunsUrl = experimentData?.link
+    ? experimentData.link.replace("?compareRunsMode=TRACES", "/evaluation-runs")
+    : null;
+
+  // Compute active scorers for the Run Evaluation button
+  const activeBuiltinJudges = builtinJudges.filter(j => j.enabled && !j.disabled);
+  const activeGuidelines = guidelines.filter(g => g.name.trim() !== "");
+  const totalScorers = activeBuiltinJudges.length + activeGuidelines.length;
 
   const demoSection = (
     <div className="space-y-6">
-      <MarkdownContent content="Below is an example configuration showing how to set up LLM judges for email quality evaluation. We've configured the Safety judge and three custom guidelines that were used to evaluate recent production traces." />
+      {/* Why Evals Matter - Data Engineering Parallel */}
+      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+        <CardContent className="pt-6 space-y-3 text-sm text-blue-900/90 dark:text-blue-100/90">
+          <p className="font-semibold text-base text-blue-900 dark:text-blue-100">
+            Why evaluation matters: the AI equivalent of unit tests and data quality checks
+          </p>
+          <p>
+            <strong>For software engineers:</strong> LLM judges are the equivalent of <strong>unit tests</strong> for your AI agent. Just like you wouldn't ship code without tests that verify your functions return the right outputs for given inputs, you shouldn't ship an agent without judges that verify it produces quality responses for representative questions. Unit tests give you confidence that your code works correctly—LLM judges give you the same confidence for your agent's outputs.
+          </p>
+          <p>
+            <strong>For data engineers:</strong> Think of LLM judges like <strong>data quality testing during pipeline runtime</strong>. Just as you run Great Expectations, dbt tests, or custom SQL assertions to ensure the data flowing through your pipelines is accurate and well-formed before downstream consumers use it, LLM judges validate that your agent's outputs meet quality standards before they reach end users. You wouldn't let a pipeline produce unchecked data for a dashboard—don't let an agent produce unchecked responses for your users.
+          </p>
+          <p>
+            The key difference from both? Unit tests and data quality checks validate deterministic outputs—a number is either right or wrong. Agent outputs are non-deterministic—the same question can produce different phrasing each time. That's why you need <strong>LLM judges</strong> that can assess semantic quality, not just exact matches.
+          </p>
+        </CardContent>
+      </Card>
+
+      <MarkdownContent content="Before running LLM judges, you need a **representative set of evaluation questions** that cover the range of questions your agent will face in production. These should span different teams, situations, and analysis types. In MLflow, evaluation questions are stored as an **MLflow Dataset**—the standard object used to run evaluations against." />
+
+      {/* Evaluation Dataset Preview */}
+      <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
+        <CardHeader>
+          <CardTitle className="text-green-900 dark:text-green-100 text-base">
+            Evaluation Dataset (MLflow Dataset - {SAMPLE_EVAL_QUESTIONS.length} of 34 questions)
+          </CardTitle>
+          <p className="text-sm text-green-800/80 dark:text-green-200/80">
+            For this demo, we've already created a dataset with 34 coaching questions. Here's a sample:
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {SAMPLE_EVAL_QUESTIONS.map((q, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-sm text-green-900 dark:text-green-100">
+                <span className="text-green-600 dark:text-green-400 font-mono text-xs mt-0.5">{idx + 1}.</span>
+                <span className="italic">&ldquo;{q}&rdquo;</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <MarkdownContent content="Now configure the judges that will score each question's response. Built-in judges handle safety and tool efficiency, while custom Guidelines judges evaluate football-specific quality." />
 
       <div className="space-y-4">
         <Card>
@@ -555,13 +390,19 @@ export function EvaluationBuilder() {
                         type="checkbox"
                         id={`judge-${index}`}
                         checked={judge.enabled}
-                        disabled={true}
-                        className="mt-1"
+                        onChange={() => {
+                          setBuiltinJudges(prev =>
+                            prev.map((j, i) =>
+                              i === index ? { ...j, enabled: !j.enabled } : j
+                            )
+                          );
+                        }}
+                        className="mt-1 cursor-pointer"
                       />
                       <div className="flex-1">
                         <Label
                           htmlFor={`judge-${index}`}
-                          className="font-medium text-sm"
+                          className="font-medium text-sm cursor-pointer"
                         >
                           {judge.name}
                         </Label>
@@ -582,14 +423,19 @@ export function EvaluationBuilder() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Award className="h-5 w-5" />
-              Guidelines allow you to customize Databricks' built-in judges to
-              your use case.
+              Curate your domain-specific judges
             </CardTitle>
-            <br />
-            Guidelines have the distinct advantage of being easy to explain to
-            business stakeholders ("we are evaluating if the app delivers upon
-            this set of rules") and, as such, can often be directly written by
-            domain experts.
+            <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+              <p>
+                Built-in judges handle universal quality dimensions (safety, relevance), but they don't know anything about <em>your</em> domain. A generic relevance judge can't tell you whether "11 personnel" is the right terminology or whether a defensive adjustment is strategically sound.
+              </p>
+              <p>
+                <strong>Domain-specific judges encode subject matter expertise as evaluation criteria.</strong> Think of it like data quality rules in a warehouse: just as you'd write assertions that "revenue should never be negative" or "every order must have a customer_id", here you write rules like "personnel packages must use standard NFL notation" or "recommendations must cite specific data from the tool calls."
+              </p>
+              <p>
+                The key advantage of Guidelines judges is that <strong>domain experts write them directly in natural language</strong>. A defensive coordinator doesn't need to write code—they describe what "good" looks like in their own words, and the LLM judge applies those rules at scale. This is the bridge between coaching expertise and automated evaluation.
+              </p>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-4">
@@ -610,11 +456,23 @@ export function EvaluationBuilder() {
                       <Input
                         id={`guideline-name-${guideline.id}`}
                         value={guideline.name}
-                        disabled={true}
+                        onChange={(e) =>
+                          updateGuideline(guideline.id, "name", e.target.value)
+                        }
                         placeholder="e.g., Email Professionalism"
                         className="mt-1"
                       />
                     </div>
+                    {guidelines.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeGuideline(guideline.id)}
+                        className="text-red-500 hover:text-red-700 mt-6"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
 
                   <div>
@@ -624,7 +482,9 @@ export function EvaluationBuilder() {
                     <Textarea
                       id={`guideline-content-${guideline.id}`}
                       value={guideline.content}
-                      disabled={true}
+                      onChange={(e) =>
+                        updateGuideline(guideline.id, "content", e.target.value)
+                      }
                       rows={8}
                       className="mt-1 font-mono text-xs"
                       placeholder="Define your custom evaluation guidelines..."
@@ -634,39 +494,121 @@ export function EvaluationBuilder() {
               ))}
             </div>
 
-            {/* <div className="flex gap-2">
-              <Button size="sm" variant="outline">
-                Preview
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={addGuideline}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Guideline
               </Button>
-              <Button size="sm">Create Judge</Button>
-            </div> */}
+            </div>
           </CardContent>
         </Card>
 
-        <div className="space-y-4 mb-4">
-          <div className="flex gap-4">
-            <Button
-              variant="open_mlflow_ui"
-              size="lg"
-              onClick={() =>
-                preloadedResultsUrl &&
-                window.open(preloadedResultsUrl, "_blank")
-              }
-              disabled={isPreloadedResultsLoading || !preloadedResultsUrl}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              View Results
-            </Button>
-          </div>
-        </div>
+        {/* Run Evaluation Summary & Buttons */}
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
+              Running evaluations live will take a few minutes. For demos, we recommend using the pre-run results below.
+            </p>
+
+            <div>
+              <p className="font-semibold text-sm">
+                {totalScorers} scorer{totalScorers !== 1 ? "s" : ""} selected: {activeBuiltinJudges.map(j => j.name).concat(activeGuidelines.map(g => g.name)).join(", ")}
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            {isEvalRunning && (
+              <div className="space-y-2">
+                <Progress value={evalProgress} className="w-full" />
+                <p className="text-xs text-center text-muted-foreground">
+                  {evalProgressMessage}
+                </p>
+              </div>
+            )}
+
+            {/* Completion state */}
+            {evalHasRun && !isEvalRunning && (
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded px-3 py-2">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-sm font-medium">Evaluation complete!</span>
+              </div>
+            )}
+
+            {evalError && (
+              <p className="text-sm text-red-600">{evalError}</p>
+            )}
+
+            <div className="flex gap-4">
+              <Button
+                variant="open_mlflow_ui"
+                size="lg"
+                onClick={() =>
+                  evaluationRunsUrl &&
+                  window.open(evaluationRunsUrl, "_blank")
+                }
+                disabled={isExperimentLoading || !evaluationRunsUrl}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                {evalHasRun ? "View Results" : "View Pre-run Results"}
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                disabled={totalScorers === 0 || isEvalRunning || evalHasRun}
+                onClick={runEvaluation}
+              >
+                {isEvalRunning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Running Evaluation...
+                  </>
+                ) : evalHasRun ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Evaluation Complete
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Run Evaluation Live ({totalScorers} scorers)
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
+
+      <MultiTurnEvaluation />
+
+      {/* Bottom Callout - Judges need SME alignment */}
+      <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
+            <Award className="h-5 w-5" />
+            LLM judges give us general signals - but are they aligned with your experts?
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-amber-900/90 dark:text-amber-100/90">
+          <p>
+            We now have both single-turn and session-level judges scoring our agent's outputs. These judges give us <strong>general signals of performance</strong>—relevance, safety, tool efficiency, conversation coherence—but there's a critical question we haven't answered yet:
+          </p>
+          <p>
+            <strong>Do these automated scores actually match what your subject matter experts consider "good"?</strong> A judge might rate a response as highly relevant, but a defensive coordinator might disagree because it missed a key personnel package detail. A session might score well on completeness, but a coach might feel the defensive adjustments weren't actionable enough.
+          </p>
+          <p className="pt-2 font-medium">
+            <strong>Next step:</strong> We'll collect feedback from SMEs (coaching staff) and compare their assessments against our judges' scores. This human validation will reveal where judges and experts disagree, so we can refine our evaluation criteria to truly reflect domain expertise.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 
   return (
     <StepLayout
-      title="Evaluate quality using LLM judges"
-      description="Scale your human expertise with LLM judges for automated quality evaluation that is tuned to your use case"
+      title="Evaluate DC recommendations using LLM judges"
+      description="Scale coaching expertise with LLM judges for automated quality evaluation of defensive game analysis"
       intro={introSection}
       codeSection={codeSection}
       demoSection={demoSection}

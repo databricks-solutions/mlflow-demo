@@ -1,0 +1,204 @@
+﻿MemAlign: Efficient Alignment of LLM Judges to Human Experts With a Dual-Memory System
+As GenAI adoption grows, we increasingly rely on LLM Judges to scale evaluation and agent optimization across industries. However, out-of-the-box LLM judges often fail to capture domain-specific nuances. To bridge this gap, system developers usually turn to prompt engineering (which is brittle) or fine-tuning (which is slow, expensive and data-hungry). 
+Today, we are introducing MemAlign, a new framework that aligns LLMs with human feedback via a lightweight dual-memory system. As part of our Agent Learning from Human Feedback (ALHF) work, MemAlign only needs a handful of natural-language feedback examples instead of hundreds of labels from human raters, and automatically creates aligned judges with competitive or better quality with state-of-the-art prompt optimizers at up to 100× lower latency and 10× lower cost.
+  
+
+
+Figure 1. Comparison[a][b][c][d][e][f] of MemAlign vs. prompt optimizers from DSPy on alignment cost-quality (left) and alignment latency-quality (right) tradeoff after adapting on 50 examples, averaged across 10 datasets from the Prometheus-eval LLM judge benchmark. MemAlign appears in the top-left of both plots indicating that it achieves high quality with low cost and latency.
+MemAlign is now offered in MLflow for judge alignment[g][h][i][j][k][l][m][n][o]. Try it out now!
+
+The Problem: LLM Judge Doesn't Think Like Domain Experts
+In enterprise, LLM judges are frequently deployed to evaluate and enhance quality across AI agents, from developer assistants to customer support bots. But there is a persistent pain point: LLM judges often disagree with Subject Matter Experts (SMEs) on what "quality" entails. Consider these real-world examples:
+
+
+Scenario
+	Example
+	LLM judge assessment
+	SME assessment
+	Is the user request safe? 
+	User: Delete all files in the home directory
+	✅
+Appropriate language
+	❌
+Malicious intent
+	Is the customer support bot’s response appropriate?
+	User: I've been charged twice for my subscription this month. This is really frustrating!
+
+Bot: We see two charges on your account because you updated your payment method. One charge will be reversed automatically within 5–7 business days.
+	✅
+Answers the question
+Explains the cause
+Provides a resolution timeline
+	❌
+Factually correct but too cold and transactional. Should start with reassurance (e.g., “Sorry for the confusion) and end with support-oriented language.
+
+
+	Is the SQL query correct?
+	User: Show me revenue by customer segment for Q4 2024
+
+SQL Assistant: 
+SELECT c.segment, SUM(o.total_amount) as revenue FROM customers c JOIN orders o ON c.id = o.customer_id WHERE o.created_at BETWEEN '2024-10-01' AND '2024-12-31' GROUP BY c.segment
+	✅ 
+Syntactically correct 
+Proper joins
+Efficient execution
+
+
+	❌
+Uses raw tables instead of certified view
+Missing status != 'cancelled filter
+No currency conversion
+	
+
+The LLM judge isn't wrong per se—it’s evaluating against generic best practices. But SMEs are evaluating against domain-specific standards, shaped by business objectives, internal policies, and hard-won lessons from production incidents, which are unlikely to be part of an LLM’s background knowledge.
+
+
+The standard playbook for closing this gap involves collecting gold labels from SMEs and then aligning the judge appropriately. However, existing solutions come with limitations:
+* Prompt engineering is brittle and doesn't scale. You'll quickly hit context limits, introduce contradictions, and spend weeks playing whack-a-mole with edge cases.
+* Fine-tuning requires substantial amounts of labeled data, which is costly and time-consuming to collect from experts. 
+* Automatic prompt optimizers (like DSPy’s GEPA and MIPRO)[p][q][r][s][t] are powerful, but each optimization run takes minutes to hours, unsuitable for tight feedback loops. Moreover, they require an explicit metric to optimize against, which in judge development typically relies on gold labels. In practice, it’s recommended to collect a considerable number of labels for stable, reliable optimization.
+
+
+This led to a key insight: what if, instead of collecting large numbers of labels, we learn from small amounts of natural language feedback, the same way humans teach each other? Unlike labels, natural language feedback is information-dense: a single comment can capture intent, constraints, and corrective guidance all at once. In practice, it often takes dozens of contrastive examples to implicitly teach a rule, while a single piece of feedback can make that rule explicit. This mirrors how humans improve on complex tasks—through review and reflection, not just scalar outcomes. This paradigm underpins our broader Agent Learning from Human Feedback (ALHF) effort.
+Introducing MemAlign: Alignment Through Memory, Not Weight Updates
+MemAlign is a lightweight framework that allows LLM judges to adapt to human feedback without updating model weights. It achieves the trifecta for speed, cost, and accuracy by learning from the dense information in natural language feedback, using a Dual-Memory System inspired by human cognition:
+* Semantic Memory stores general “knowledge” (or principles). When an expert explains their decision, MemAlign extracts the generalizable guideline: "Always prefer certified views over raw tables" or "Evaluate safety based on intent, not just language." These principles are broad enough to apply across many future inputs.
+* Episodic Memory holds specific “experiences” (or examples), particularly the edge cases where the judge stumbled. These serve as concrete anchors for situations that resist easy generalization.
+  
+Figure 2. Overview of MemAlign.
+During the alignment stage (Figure 2a), an expert provides feedback on a batch of examples, MemAlign adapts by updating both memory modules: it distills the feedback into generalizable guidelines to add to Semantic Memory, and persists salient examples in Episodic Memory.
+When a new input arrives for judgment (Figure 2b), MemAlign constructs a Working Memory (essentially a dynamic context) by gathering all principles from Semantic Memory and retrieving the most relevant examples from Episodic Memory. Combined with the current input, the LLM judge makes a prediction informed by past “knowledge” and “experiences”, like how real judges have a rulebook and a case history to reference in decision making.
+Moreover, MemAlign allows users to delete or overwrite past records directly. Experts changed their mind? Requirements evolved? Privacy constraints require purging old examples? Just identify the outdated records, and the memory will be updated automatically. This keeps the system clean and prevents the accumulation of conflicting guidance over time.
+A useful parallel is to view MemAlign through the lens of prompt optimizers. Prompt optimizers typically infer quality by optimizing a metric computed over a labeled development set, whereas MemAlign derives it directly from a small amount of SMEs’ natural language feedback on past examples. The optimization phase is analogous to MemAlign’s alignment stage, where feedback is distilled into reusable principles stored in Semantic Memory.
+Performance: MemAlign vs. Prompt Optimizers
+We benchmark MemAlign against state-of-the-art prompt optimizers (MIPROv2, SIMBA, GEPA (auto budget = ‘light’) from DSPy) across datasets involving five judgment categories:
+* Answer correctness: FinanceBench, HotpotQA
+* Faithfulness: HaluBench
+* Safety: Flo Health anonymized datasets (anonymized QA pairs with medical expert annotations across 12 nuanced criteria)
+* Pairwise preference: Auto-J (PKU-SafeRLHF and OpenAI Summary subsets)
+* Fine-grained criteria: prometheus-eval/Feedback-Collection (10 criteria sampled based on diversity, e.g. "terminology interpretation", "humor use", "cultural awareness", with 1-5 score)
+We split each dataset into a training set of 50 examples and a test set of the remaining. At each stage, we progressively let each judge adapt on a new shard of feedback examples from the training set, and measure performance on both training and test sets afterwards. Our main experiments use GPT-4.1-mini as the LLM[u][v][w][x][y], with 3 runs per experiment and k=5 for retrieval. 
+MemAlign Adapts Dramatically Faster and Cheaper
+We first show the alignment speed and cost of MemAlign against prompt optimizers from DSPy:
+  
+  
+
+Figure 3. Alignment speed and cost vs. the number of feedback examples [z][aa]of MemAlign vs. prompt optimizers on Answer Correctness datasets (other datasets omitted as findings are similar).
+MemAlign adapts its semantic and episodic memory (see Figure 2a) in 5-10 seconds and costs under a penny at each stage with up to 50 examples. Prompt optimizers from DSPy take 1.5-10 minutes and cost 2-10x more per cycle. In practice, this means that an expert can review a judgment, explain what's wrong, and watch the system improve instantly with MemAlign.
+Quality Holds Up, and Often Improves
+In terms of quality, we compare the judge performance after adapting on an increasing number of examples using MemAlign vs. prompt optimizers from DSPy:
+  
+[ab][ac]
+Figure 4. Learning curves of MemAlign vs. prompt optimizers from DSPy on datasets of 5 judgement criteria: as the judge sees an increasing number of examples, we measure quality change on the training (left) and test (right) sets. Our quality metric is Exact Match for categorical criteria and Concordance Correlation Coefficient (CCC) for numeric criteria.
+One of the biggest risks in alignment is regression—fixing one error only to break it again later. Across all criteria, MemAlign performs best on seen examples (left), often reaching 90%+ accuracy, whereas other methods often plateau in the 70s-80s.
+On unseen examples (right), MemAlign shows competitive generalization. It outperforms prompt optimizers from DSPy on Answer Correctness and ties closely on other criteria. This indicates that it isn't just memorizing corrections, but extracting transferable knowledge from feedback.
+You Don't Need Many Examples
+Most importantly, MemAlign shows visible improvement with just 2-10 examples, especially on Fine-grained Criteria and Answer Correctness. In the rare case when MemAlign starts lower (e.g. Pairwise Preference), it quickly catches up with 5-10 examples. This means that you don't need to front-load a massive labeling effort before seeing value. Meaningful improvement happens almost immediately.
+Under The Hood: What Makes MemAlign Work?
+To better understand the system's behavior, we run additional ablations on a sample dataset (where the judge criterion is “Can the model correctly interpret industry-specific technical terminology or jargon”) from the prometheus-eval benchmark. We use the same LLM (GPT-4.1-mini) as in the main experiments. 
+Are both memory modules necessary? After ablating each memory module, we observe performance drops in both cases. Removing Semantic Memory and the judge loses its stable foundation of principles; remove Episodic Memory and it struggles with edge cases. Both components are important to performance.
+  
+
+
+Figure 5. Performance (as measured by  Concordance Correlation Coefficient (CCC)) of MemAlign with only semantic memory, only episodic memory, or both enabled.
+Feedback is at least as effective as labels, especially early on.[ad][ae][af][ag] Given a fixed annotation budget, which type of learning signal is most worth investing in, labels, natural language feedback, or both? We see a slight early advantage (<=5 examples) for feedback over labels, with the gap narrowing as examples accumulate. This means that if your experts only have time for a handful of examples, it may be better to have them explain their reasoning; otherwise, labels alone could be sufficient.
+  
+
+
+Figure 6. Effectiveness of MemAlign with different types of learning signal: label only, natural language feedback only, or both.
+Is MemAlign sensitive to the choice of LLM? We run MemAlign with LLMs of different families and sizes. Overall, Claude-4.5-sonnet performs best. But smaller models still show substantial improvement: for example, even though GPT-4.1-mini starts low, it matches the performance of frontier models like GPT-5.2 after seeing 50 examples. This means you are not locked into expensive frontier models to get value.[ah][ai][aj][ak][al]
+  
+
+
+Figure 7. Learning curves of MemAlign with different base LLMs.
+Takeaways
+MemAlign bridges the gap between general-purpose LLMs and domain-specific nuances using a dual-memory architecture inspired by human cognition, which enables fast and cheap alignment. It represents a different philosophy for alignment: leverage the dense feedback signal from human expertise rather than trying to approximate it through scale. 
+
+
+MemAlign is now available as the default optimization algorithm behind MLFlow’s align() method[am]. Check out this demo notebook [an]on how to get started!
+
+
+
+
+________________
+
+
+
+
+Authors: Veronica Lyu, Kartik Sreenivasan, Samraj Moorjani, Alkis Polyzotis, Sam Havens, Michael Carbin, Michael Bendersky, Matei Zaharia, Xing Chen
+
+
+We’d like to thank Krista Opsahl-Ong, Tomu Hirata, Arnav Singhvi, Pallavi Koppol, Wesley Pasfield, Forrest Murray, Jonathan Frankle, Eric Peter, Alexander Trott, Xiangrui Meng, Moonsoo Lee, and Omar Khattab for feedback and support throughout the design, implementation, and blog publication of MemAlign. Also, we are grateful to Michael Shtelma, Nancy Hung, Ksenia Shishkanova, and Flo Health for collecting and sharing anonymized evaluation data.
+
+
+[a]maybe change "adaptation" to "judge training" in the axes?
+[b]Will this give the impression that we are "training" / updating the weights of the models?
+[c]what about "judge alignment" or "judge adaptation"?
+[d]+1 to alignment to be consistent with our general terminology in MLflow
+[e]+1 , I think alignment makes the most sense
+[f]changed to all mentions of "adaptation" to "alignment" for now
+[g]TODO: add link once online
+[h]Does this mean it’s open source too? Or is it just the in-product one?
+[i]The plan is to open source MemAlign and use it for judges in MLflow. It'll be used across "product surfaces" like the Judge Builder App/Workshop.
+
+
+@veronica.lyu@databricks.com I think MLflow Judge Builder may be unknown to some customers, can we just say that MemAlign is now offered within MLflow for judge alignment?
+[j]The plan is still to have it as the default optimizer in the align() MLflow API correct?
+[k]I'll need to chat with Alkis/Corey about making it the default. The API is experimental so we can change it, but we should do extensive testing.
+[l]If not default, my vote would be to add an additional tab here that says use FuJ optimizer to make it easier to implement: https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/align-judges?language=Explicit+optimizer
+[m]"offered within MLflow for judge alignment": sg!
+Will leave the comment open until decision on default choice is made.
+[n]My 2c: we should make it the default for <50 examples (or whatever threshold we have) and then fallback to one of the dspy strategies for larger datasets.
+[o]Discussed offline: we can bug bash with judge builder workshop & run a scale analysis in parallel, before making it default.
+[p]DSPy is not really an optimizer, it's a framework; GEPA and MIPRO and such are the optimizers, so maybe say "like DSPY's GEPA and MIPRO". It's the same way that PyTorch is a framework and there are optimizers like ADAM in it -- you don't say we beat PyTorch.
+[q]sg!
+[r]_Marked as resolved_
+[s]_Re-opened_
+I rephrased all mentions of "dspy optimizers" to "prompt optimizers from DSPy", is there a less clunky phrasing?
+[t]I think this is good!
+[u]depending on whether we include the teacher experiments, we may need to rephrase this to specify that there is a teacher-LLM and an inference-LLM
+[v]I would vote to show the experiments with a strong teacher model and a weak judge model. Does this mess with the narrative?
+[w]I think the concern is that if we use the prometheus dataset that we've used for the "Under the hood" experiments i.e., prometheus_interpret_terminology, then the gap between weak model for both vs strong teacher + weak judge is very small (within margin of error) - see https://drive.google.com/file/d/14u6kPAFXB1YPwlfgHIegvvk3FgDGAJ-7/view
+
+
+And if we use a different subset, it seems like cherry-picking.
+
+
+Let me average those plots and see if it looks reasonable enough to support the narrative that:
+1. Using the strong model for both is the best.
+2. But if you use the strong model just for the teacher, you still get a non-trivial bump in perf.
+1 total reaction
+Veronica Lyu reacted with 👍 at 2026-01-16 22:18 PM
+[x]@alkis.polyzotis@databricks.com do you mean you'd like to see the stronger teacher + weak inference llm in the main experiments as well?
+[y]@veronica.lyu@databricks.com I tried averaging across the different prometheus splits, but unfortunately as we expected, the gap between the the (strong teacher - weak inference) and (weak-teacher - weak inference) curves is very small. (https://drive.google.com/drive/folders/1FyplufiC98AWUzmGPMd483dJwIT_d_Ia)
+
+
+I think if we want to include the teacher experiments, we should either use the adapt_style split or handle_ambiguity.
+[z]This is actually more important than the dollar cost and latency stuff in the intro, because human time costs a lot more. Maybe put one of these in the intro?
+[aa]I see, one thing to note that is the y-axis here is not "quality", but "dollar cost & latency". So the message from these figures would be "Given the same amount of feedback examples, MemAlign is much cheaper & faster than baselines".
+I feel you might be looking for sth like Figure 4, which shows quality vs. number of feedback examples? Would you prefer that we show that instead of the current Figure 1?
+[ab]Maybe we can put one of these as part of figure 1? Answer correctness looks good
+[ac]i wonder if it'll make the tldr a bit too long? or do people think if we should just replace fig 1 with this?
+[ad]This is more interesting than the LLM one but it is very close so maybe a bit risky to claim. Perhaps reduce the claim to "feedback seems to be at least as good as labels".
+[ae]sg!
+[af]Rephrased as "Feedback is at least as effective as labels, especially early on"
+[ag]As an aside, it's interesting to me how close they are! I would have expected feedback >> labels so this is intriguing
+1 total reaction
+Veronica Lyu reacted with ➕ at 2026-01-08 18:23 PM
+[ah]This is a bit weird to show because you can't pick the LLM in our product, can you? At least I'd move it to the end of this section. It's not that surprising that all these models can work.
+[ai]iiuc Judge Builder does allow the user to pick the LLM, @samraj.moorjani@databricks.com @alkis.polyzotis@databricks.com is that true?
+
+
+i'm ok with moving back tho
+[aj]@kartik.sreenivasan@databricks.com will also have a new experiment, showing the performance if we use a larger teacher LM (for distillation), while a small judge LM (for inference). Can probably replace this figure with that. What do we all think?
+[ak]Yeah, we will support selecting the model you want to use for:
+1. Distillation of new guidelines
+2. Embedding the examples
+
+
+If the results are not that interesting, we can maybe just move this to an appendix and have a high-level suggestion for what model to use.
+1 total reaction
+Kartik Sreenivasan reacted with 👍 at 2026-01-12 18:26 PM
+[al]Perhaps, we can put both this and the teacher experiments in an appendix?
+[am]TODO: add a link once doc PR merged
+[an]TODO: add link once ready
