@@ -363,47 +363,34 @@ class AutoSetup:
         except KeyboardInterrupt:
           return None
 
+    # Build ordered list: suggested first, then the rest
+    ordered_catalogs = []
+    if suggested_catalog and suggested_catalog in available_catalogs:
+      ordered_catalogs.append(suggested_catalog)
+    for catalog_name in available_catalogs:
+      if catalog_name != suggested_catalog:
+        ordered_catalogs.append(catalog_name)
+
     print(
       f'Available catalogs (showing {len(available_catalogs)} with VERIFIED '
       f'CREATE SCHEMA permissions):'
     )
-    catalog_list = list(available_catalogs.keys())
-
-    # Show suggested catalog first if it exists
-    if suggested_catalog and suggested_catalog in available_catalogs:
-      print(f'   0. {suggested_catalog} (suggested) - {available_catalogs[suggested_catalog]}')
-      start_idx = 1
-    else:
-      start_idx = 0
-
-    # Show other catalogs
-    for i, (catalog_name, access_level) in enumerate(available_catalogs.items()):
-      if catalog_name != suggested_catalog:
-        print(f'   {start_idx + i}. {catalog_name} - {access_level}')
+    for i, catalog_name in enumerate(ordered_catalogs):
+      suffix = ' (suggested)' if catalog_name == suggested_catalog else ''
+      print(f'   {i}. {catalog_name}{suffix} - {available_catalogs[catalog_name]}')
 
     # Add option to manually enter catalog name
-    manual_entry_idx = len(catalog_list) + (1 if suggested_catalog in available_catalogs else 0)
+    manual_entry_idx = len(ordered_catalogs)
     print(f'   {manual_entry_idx}. Enter catalog name manually')
-
-    max_choice = manual_entry_idx
 
     while True:
       try:
-        choice = input(f'\nSelect catalog (0-{max_choice}) or type catalog name: ').strip()
+        choice = input(f'\nSelect catalog (0-{manual_entry_idx}) or type catalog name: ').strip()
 
         # Check if it's a number
         try:
           choice_num = int(choice)
-          if choice_num == 0 and suggested_catalog and suggested_catalog in available_catalogs:
-            return suggested_catalog
-          elif 1 <= choice_num <= len(catalog_list):
-            # Adjust index based on whether suggested catalog is shown
-            if suggested_catalog and suggested_catalog in available_catalogs:
-              selected_catalogs = [cat for cat in catalog_list if cat != suggested_catalog]
-              return selected_catalogs[choice_num - 1]
-            else:
-              return catalog_list[choice_num - 1]
-          elif choice_num == manual_entry_idx:
+          if choice_num == manual_entry_idx:
             # Manual entry option
             while True:
               manual_catalog = input('Enter catalog name: ').strip()
@@ -417,8 +404,10 @@ class AutoSetup:
               except Exception as e:
                 print(f"❌ Cannot access catalog '{manual_catalog}': {e}")
                 continue
+          elif 0 <= choice_num < len(ordered_catalogs):
+            return ordered_catalogs[choice_num]
           else:
-            print(f'❌ Please enter a number between 0 and {max_choice}')
+            print(f'❌ Please enter a number between 0 and {manual_entry_idx}')
             continue
         except ValueError:
           # User typed a catalog name directly
@@ -449,50 +438,39 @@ class AutoSetup:
       new_schema = input('Enter new schema name [default]: ').strip()
       return new_schema or 'default'
 
-    print('Available schemas:')
-    schema_list = list(available_schemas.keys())
-
-    # Show suggested schema first if it exists
+    # Build ordered list: suggested first, then the rest
+    ordered_schemas = []
     if suggested_schema and suggested_schema in available_schemas:
-      print(f'   0. {suggested_schema} (suggested) - {available_schemas[suggested_schema]}')
-      start_idx = 1
-    else:
-      start_idx = 0
-
-    # Show other schemas
-    for i, (schema_name, access_level) in enumerate(available_schemas.items()):
+      ordered_schemas.append(suggested_schema)
+    for schema_name in available_schemas:
       if schema_name != suggested_schema:
-        print(f'   {start_idx + i}. {schema_name} - {access_level}')
+        ordered_schemas.append(schema_name)
 
-    create_option_num = len(schema_list) + (1 if suggested_schema in available_schemas else 0)
-    print(f'   {create_option_num}. Create new schema')
+    print('Available schemas:')
+    for i, schema_name in enumerate(ordered_schemas):
+      suffix = ' (suggested)' if schema_name == suggested_schema else ''
+      print(f'   {i}. {schema_name}{suffix} - {available_schemas[schema_name]}')
+
+    create_option_idx = len(ordered_schemas)
+    print(f'   {create_option_idx}. Create new schema')
 
     while True:
       try:
-        max_choice = len(schema_list) + (1 if suggested_schema in available_schemas else 0)
-        choice = input(f'\nSelect schema (0-{max_choice}) or type schema name: ').strip()
+        choice = input(f'\nSelect schema (0-{create_option_idx}) or type schema name: ').strip()
 
         # Check if it's a number
         try:
           choice_num = int(choice)
-          if choice_num == 0 and suggested_schema and suggested_schema in available_schemas:
-            return suggested_schema
-          elif 1 <= choice_num <= len(schema_list):
-            # Adjust index based on whether suggested schema is shown
-            if suggested_schema and suggested_schema in available_schemas:
-              selected_schemas = [sch for sch in schema_list if sch != suggested_schema]
-              return selected_schemas[choice_num - 1]
-            else:
-              return schema_list[choice_num - 1]
-          elif choice_num == len(schema_list) + (1 if suggested_schema in available_schemas else 0):
+          if choice_num == create_option_idx:
             # Create new schema
             new_schema = input('Enter new schema name: ').strip()
             if new_schema:
               print(f'💡 Will create new schema: {new_schema}')
               return new_schema
+          elif 0 <= choice_num < len(ordered_schemas):
+            return ordered_schemas[choice_num]
           else:
-            max_choice = len(schema_list) + (1 if suggested_schema in available_schemas else 0)
-            print(f'❌ Please enter a number between 0 and {max_choice}')
+            print(f'❌ Please enter a number between 0 and {create_option_idx}')
             continue
         except ValueError:
           # User typed a schema name directly
@@ -1382,11 +1360,13 @@ class AutoSetup:
           catalog_name, service_principal, permissions=['USE CATALOG']
         )
 
-        # Grant schema permissions (ALL PERMISSIONS + MANAGE)
+        # Grant schema permissions for prompt lifecycle management
         schema_name = f'{self.config["UC_CATALOG"]}.{self.config["UC_SCHEMA"]}'
         print(f'🔐 Granting schema permissions on {schema_name}...')
         self.resource_manager.grant_schema_permissions(
-          schema_name, service_principal, permissions=['ALL_PRIVILEGES', 'MANAGE']
+          schema_name,
+          service_principal,
+          permissions=['USE_SCHEMA', 'CREATE_FUNCTION', 'MANAGE', 'EXECUTE'],
         )
 
         # Grant experiment permissions (CAN MANAGE)
@@ -1690,7 +1670,6 @@ class AutoSetup:
         print(f'📱 Databricks App: {app_url}')
         print('   ↳ Interactive demo application ready to use')
       else:
-        workspace_path = self.config.get('LHA_SOURCE_CODE_PATH', '/Workspace/...')
         notebook_url = self._get_notebook_url('0_demo_overview')
         print(f'📓 Demo Overview Notebook: {notebook_url}')
         print('   ↳ Start here for interactive learning experience')
@@ -1741,12 +1720,11 @@ class AutoSetup:
       print('\n📊 Setup Progress:')
       self.progress.show_detailed_progress()
 
-      # For notebook-only mode, show the primary access link at the very bottom in a super obvious way
+      # For notebook-only mode, show the primary access link at the very bottom
       if deployment_mode == 'notebook_only':
         print('\n\n' + '=' * 80)
         print('🚨 🚨 🚨  YOUR NOTEBOOK IS READY - CLICK HERE TO START  🚨 🚨 🚨')
         print('=' * 80)
-        workspace_path = self.config.get('LHA_SOURCE_CODE_PATH', '/Workspace/...')
         notebook_url = self._get_notebook_url('0_demo_overview')
         print(f'\n🎯 👉 START HERE: {notebook_url}')
         print('\n   ↳ This opens the Demo Overview Notebook - your starting point!')
@@ -2007,6 +1985,12 @@ def main():
   if args.validate_only:
     # Only run validation
     print('🔍 Running validation checks only...')
+
+    # Initialize Databricks components for validation
+    if not auto_setup._initialize_databricks_components(skip_auth_prompts=True):
+      print('❌ Failed to initialize Databricks components for validation')
+      sys.exit(1)
+
     valid, issues = auto_setup.validator.validate_prerequisites()
     if valid:
       print('✅ All validation checks passed')

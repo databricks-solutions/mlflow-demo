@@ -17,6 +17,11 @@ os.environ.pop('DATABRICKS_HOST', None)
 import mlflow
 from mlflow.entities import DatasetInput, LoggedModelInput
 
+# Disable OpenAI autologging to avoid pydantic validation errors with streaming responses
+# The LLM provider doesn't include 'id' in the last streaming chunk, causing MLflow's
+# autolog to fail when reconstructing ChatCompletion. Manual tracing still works.
+mlflow.openai.autolog(disable=True)
+
 # Unity Catalog schema to store the prompt in
 UC_CATALOG = os.environ.get('UC_CATALOG')
 UC_SCHEMA = os.environ.get('UC_SCHEMA')
@@ -62,6 +67,9 @@ def run_single_evaluation(dataset_name, prompt_alias, eval_run_name):
     )
 
   generator_new = EmailGenerator(prompt_alias=prompt_alias)
+  # Disable autolog again - EmailGenerator.__init__ re-enables it
+  mlflow.openai.autolog(disable=True)
+
   def predict_fn_new(customer_name: str , user_input: str) -> Dict[str, Any]:
       return generator_new.generate_email_with_retrieval(customer_name, user_input)
 
@@ -442,21 +450,25 @@ def add_traces_to_run(run_id: str, trace_ids: list[str]):
 
 
 def create_and_add_fix_quality_dataset():
-  dataset = create_dataset(
-    uc_table_name=f'{UC_CATALOG}.{UC_SCHEMA}.{FIX_DATASET_NAME}',
-  )
+  uc_table_name = f'{UC_CATALOG}.{UC_SCHEMA}.{FIX_DATASET_NAME}'
+  try:
+    dataset = get_dataset(uc_table_name=uc_table_name)
+  except Exception:
+    dataset = create_dataset(uc_table_name=uc_table_name)
   traces = mlflow.search_traces(filter_string='tags.eval_example = "yes"')
   dataset.merge_records(traces)
-  return get_dataset(uc_table_name=f'{UC_CATALOG}.{UC_SCHEMA}.{FIX_DATASET_NAME}')
+  return get_dataset(uc_table_name=uc_table_name)
 
 
 def create_and_add_dataset_regression():
-  dataset = create_dataset(
-    uc_table_name=f'{UC_CATALOG}.{UC_SCHEMA}.{REGRESSION_DATASET_NAME}',
-  )
+  uc_table_name = f'{UC_CATALOG}.{UC_SCHEMA}.{REGRESSION_DATASET_NAME}'
+  try:
+    dataset = get_dataset(uc_table_name=uc_table_name)
+  except Exception:
+    dataset = create_dataset(uc_table_name=uc_table_name)
   traces = mlflow.search_traces(filter_string='tags.eval_example = "regression"')
   dataset.merge_records(traces)
-  return get_dataset(uc_table_name=f'{UC_CATALOG}.{UC_SCHEMA}.{REGRESSION_DATASET_NAME}')
+  return get_dataset(uc_table_name=uc_table_name)
 
 
 def make_eval_datasets_and_baseline_runs_for_prompt_test():

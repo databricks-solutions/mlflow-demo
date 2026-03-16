@@ -201,11 +201,23 @@ class EmailGenerator:
     prompt_uri = (
       f'prompts:/{self.uc_catalog}.{self.uc_schema}.{self.prompt_name}@{self.prompt_alias}'
     )
-    self.prompt = mlflow.genai.load_prompt(prompt_uri)
+
+    try:
+      self.prompt = mlflow.genai.load_prompt(prompt_uri)
+    except Exception as e:
+      # If loading fails due to permissions, log detailed error
+      print(f'Error loading prompt from {prompt_uri}: {e}')
+      print(f'Error type: {type(e).__name__}')
+      raise
 
     # Set the active MLflow model to track the specific prompt version in traces
     # This enables tracking which prompt version was used for each generation
-    mlflow.set_active_model(name=f'{self.prompt_name}@{self.prompt_alias}@v{self.prompt.version}')
+    # Wrapped in try-except as this is optional and may fail with limited permissions
+    try:
+      mlflow.set_active_model(name=f'{self.prompt_name}@{self.prompt_alias}@v{self.prompt.version}')
+    except Exception as e:
+      # Log the error but don't fail - this is just for enhanced tracking
+      print(f'Note: Could not set active model for tracking: {e}')
 
   @mlflow.trace(span_type='PARSER')
   def _create_messages(self, customer_documents: List[Document], user_input: Optional[str] = None):
