@@ -38,8 +38,23 @@ def load_customer_data():
 
 CUSTOMER_DATA = load_customer_data()
 
-# Initialize email generator with default configuration
-email_generator = EmailGenerator()
+# Lazily initialize the email generator.
+#
+# The generator's constructor loads the prompt from the MLflow prompt registry, which
+# makes a REST call to Databricks. Doing that at module-import time means any transient
+# failure (prompt not registered yet, missing credentials, network hiccup) raises an
+# unhandled exception during import and crashes the uvicorn worker, taking the whole app
+# down on startup. Instead, build the generator on first use so such failures surface as
+# clean per-request HTTP errors and the app always boots.
+_email_generator: Optional[EmailGenerator] = None
+
+
+def get_email_generator() -> EmailGenerator:
+  """Return the process-wide EmailGenerator, creating it on first use."""
+  global _email_generator
+  if _email_generator is None:
+    _email_generator = EmailGenerator()
+  return _email_generator
 
 
 # Email generation models
@@ -105,7 +120,7 @@ async def get_customer_by_name(company_name: str):
 async def api_generate_email_with_retrieval(request_data: EmailRequestWithRetrieval):
   """Generate email with customer data retrieval."""
   try:
-    email_json = email_generator.generate_email_with_retrieval(
+    email_json = get_email_generator().generate_email_with_retrieval(
       customer_name=request_data.customer_name, user_input=request_data.user_input
     )
     if (
@@ -145,7 +160,7 @@ async def api_generate_email_stream_with_retrieval(request_data: EmailRequestWit
   async def generate():
     try:
       # Stream tokens from the LLM with retrieval
-      async for chunk in email_generator.stream_generate_email_with_retrieval(
+      async for chunk in get_email_generator().stream_generate_email_with_retrieval(
         customer_name=request_data.customer_name, user_input=request_data.user_input
       ):
         # Format as Server-Sent Event
@@ -181,7 +196,7 @@ async def submit_feedback(feedback: FeedbackRequest):
   # Convert rating to boolean value
   is_positive = feedback.rating == FeedbackRating.THUMBS_UP
 
-  result = email_generator.log_feedback(
+  result = get_email_generator().log_feedback(
     trace_id=feedback.trace_id,
     value=is_positive,
     comment=feedback.comment,

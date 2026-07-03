@@ -1368,51 +1368,92 @@ class AutoSetup:
 
     try:
       app_name = self.config['DATABRICKS_APP_NAME']
+      catalog_name = self.config['UC_CATALOG']
+      schema_name = f'{self.config["UC_CATALOG"]}.{self.config["UC_SCHEMA"]}'
+      experiment_id = self.config['MLFLOW_EXPERIMENT_ID']
+      llm_model = self.config.get('LLM_MODEL', 'databricks-claude-3-7-sonnet')
 
       # Get app service principal (this should work after deployment)
       service_principal = self.resource_manager.get_app_service_principal(app_name)
 
-      if service_principal:
-        print(f'✅ Found app service principal: {service_principal}')
+      if not service_principal:
+        # Without the app's service principal we cannot grant anything. Do NOT report
+        # success — the app would deploy but fail at runtime with PERMISSION_DENIED when
+        # it reads/writes the prompt registry. Surface the exact manual steps and fail.
+        print('❌ Could not resolve the app service principal - permissions were NOT set.')
+        self._print_manual_permission_grants(catalog_name, schema_name, service_principal=None)
+        return False
 
-        # Grant catalog permissions first (USE CATALOG)
-        catalog_name = self.config['UC_CATALOG']
-        print(f'🔐 Granting catalog permissions on {catalog_name}...')
-        self.resource_manager.grant_catalog_permissions(
-          catalog_name, service_principal, permissions=['USE CATALOG']
-        )
+      print(f'✅ Found app service principal: {service_principal}')
 
-        # Grant schema permissions (ALL PERMISSIONS + MANAGE)
-        schema_name = f'{self.config["UC_CATALOG"]}.{self.config["UC_SCHEMA"]}'
-        print(f'🔐 Granting schema permissions on {schema_name}...')
-        self.resource_manager.grant_schema_permissions(
-          schema_name, service_principal, permissions=['ALL_PRIVILEGES', 'MANAGE']
-        )
+      # Grant each securable and track whether it actually succeeded.
+      results = {}
 
-        # Grant experiment permissions (CAN MANAGE)
-        experiment_id = self.config['MLFLOW_EXPERIMENT_ID']
-        print(f'🔐 Granting experiment permissions on {experiment_id}...')
-        self.resource_manager.grant_experiment_permissions(
-          experiment_id, service_principal, permissions=['CAN_MANAGE']
-        )
+      print(f'🔐 Granting catalog permissions on {catalog_name}...')
+      results['catalog'] = self.resource_manager.grant_catalog_permissions(
+        catalog_name, service_principal, permissions=['USE CATALOG']
+      )
 
-        # Grant model serving endpoint access
-        llm_model = self.config.get('LLM_MODEL', 'databricks-claude-3-7-sonnet')
-        print(f'🔐 Granting model serving access to {llm_model}...')
-        self.resource_manager.grant_model_serving_permissions(app_name, llm_model)
+      print(f'🔐 Granting schema permissions on {schema_name}...')
+      results['schema'] = self.resource_manager.grant_schema_permissions(
+        schema_name, service_principal, permissions=['ALL_PRIVILEGES', 'MANAGE']
+      )
 
-        print('✅ Permissions set successfully')
-      else:
-        print(
-          '⚠️  App service principal not available yet - permissions may need to be set manually'
-        )
-        print("   This is normal if the app hasn't been deployed yet")
+      print(f'🔐 Granting experiment permissions on {experiment_id}...')
+      results['experiment'] = self.resource_manager.grant_experiment_permissions(
+        experiment_id, service_principal, permissions=['CAN_MANAGE']
+      )
 
+      print(f'🔐 Granting model serving access to {llm_model}...')
+      results['model_serving'] = self.resource_manager.grant_model_serving_permissions(
+        app_name, llm_model
+      )
+
+      failed = [name for name, ok in results.items() if not ok]
+      if failed:
+        # A silent failure here is what causes the runtime "PERMISSION_DENIED: create
+        # prompt" error, so fail loudly and tell the user exactly how to remediate.
+        print(f'\n❌ Permission setup failed for: {", ".join(failed)}')
+        if 'catalog' in failed or 'schema' in failed:
+          self._print_manual_permission_grants(catalog_name, schema_name, service_principal)
+        return False
+
+      print('✅ Permissions set successfully')
       return True
     except Exception as e:
-      print(f'⚠️  Permission setup had issues: {e}')
-      print('   You may need to configure permissions manually via the UI')
-      return True  # Don't fail setup for permission issues
+      print(f'❌ Permission setup failed: {e}')
+      self._print_manual_permission_grants(
+        self.config.get('UC_CATALOG'),
+        f'{self.config.get("UC_CATALOG")}.{self.config.get("UC_SCHEMA")}',
+        service_principal=None,
+      )
+      return False
+
+  def _print_manual_permission_grants(self, catalog_name, schema_name, service_principal):
+    """Print the exact GRANT statements needed by the app service principal.
+
+    MLflow prompts are stored as Unity Catalog functions, so the app's service principal
+    needs USE CATALOG on the catalog and USE SCHEMA + EXECUTE + CREATE FUNCTION + MANAGE on
+    the schema. Without these the app boots (it can read) but fails at runtime with
+    "PERMISSION_DENIED: create prompt" when it writes to the prompt registry.
+    """
+    principal = service_principal or '<app-service-principal-application-id>'
+    # Prefer the application_id (client_id) - that is what UC GRANT expects for an SP.
+    if service_principal:
+      try:
+        principal = self.resource_manager.get_service_principal_application_id(service_principal)
+      except Exception:
+        pass
+    print('\n' + '=' * 78)
+    print('⚠️  ACTION REQUIRED: grant the app service principal these privileges')
+    print('    (run in a SQL editor / notebook as the schema owner or a metastore admin):')
+    print('=' * 78)
+    print(f'GRANT USE CATALOG ON CATALOG {catalog_name} TO `{principal}`;')
+    print(
+      f'GRANT USE SCHEMA, EXECUTE, CREATE FUNCTION, MANAGE '
+      f'ON SCHEMA {schema_name} TO `{principal}`;'
+    )
+    print('=' * 78 + '\n')
 
   def _generate_env_file(self) -> bool:
     """Generate .env.local file."""
