@@ -40,18 +40,18 @@ class DatabricksResourceManager:
     """
     try:
       print(f'   Looking up service principal: {principal_name}...')
-      
+
       # Use filter to search by display name instead of listing all service principals
       filter_query = f'displayName eq "{principal_name}"'
       sps = self.client.service_principals.list(filter=filter_query)
-      
+
       for sp in sps:
         if sp.display_name == principal_name:
           print(f'   Found service principal application_id: {sp.application_id}')
           return sp.application_id
-      
+
       raise Exception(f'Could not find application_id for service principal: {principal_name}')
-      
+
     except Exception as e:
       print(f'   ⚠️  Could not get service principal application_id: {e}')
       raise e
@@ -271,7 +271,7 @@ class DatabricksResourceManager:
 
   def grant_catalog_permissions(
     self, catalog_name: str, principal: str, permissions: List[str] = None
-  ) -> None:
+  ) -> bool:
     """Grant permissions on a catalog to a principal using the grants API.
 
     Args:
@@ -341,18 +341,15 @@ class DatabricksResourceManager:
       except Exception:
         pass  # Verification is optional
 
+      return True
+
     except Exception as e:
-      print(f'⚠️  Warning: Failed to grant catalog permissions: {e}')
-      print('You may need to grant catalog permissions manually via the UI')
-      print('📋 Manual steps:')
-      print(f'   1. Go to your Unity Catalog → {catalog_name} → Permissions tab')
-      print(f'   2. Grant {permissions} to service principal: {principal}')
-      print('\n⏸️  Please complete the manual permission setup, then press Enter to continue...')
-      input()
+      print(f'❌ Failed to grant catalog permissions on {catalog_name}: {e}')
+      return False
 
   def grant_schema_permissions(
     self, schema_full_name: str, principal: str, permissions: List[str] = None
-  ) -> None:
+  ) -> bool:
     """Grant permissions on a schema to a principal using the grants API.
 
     Args:
@@ -428,18 +425,15 @@ class DatabricksResourceManager:
       except Exception:
         pass  # Verification is optional
 
+      return True
+
     except Exception as e:
-      print(f'⚠️  Warning: Failed to grant permissions on schema: {e}')
-      print('You may need to grant permissions manually via the UI')
-      print('📋 Manual steps:')
-      print(f'   1. Go to your Unity Catalog schema → {schema_full_name} → Permissions tab')
-      print(f'   2. Grant {permissions} to service principal: {principal}')
-      print('\n⏸️  Please complete the manual permission setup, then press Enter to continue...')
-      input()
+      print(f'❌ Failed to grant permissions on schema {schema_full_name}: {e}')
+      return False
 
   def grant_experiment_permissions(
     self, experiment_id: str, principal: str, permissions: List[str] = None
-  ) -> None:
+  ) -> bool:
     """Grant permissions on an MLflow experiment to a principal.
 
     Args:
@@ -529,7 +523,7 @@ class DatabricksResourceManager:
 
       if not access_control_list:
         print('⚠️  No valid permissions found, skipping permission grant')
-        return
+        return False
 
       # Use the experiments API to set permissions (replaces all permissions)
       self.client.experiments.set_permissions(
@@ -541,21 +535,13 @@ class DatabricksResourceManager:
         f'(preserved existing permissions)'
       )
 
+      return True
+
     except Exception as e:
-      print(f'⚠️  Warning: Failed to grant experiment permissions: {e}')
+      print(f'❌ Failed to grant experiment permissions on {experiment_id}: {e}')
+      return False
 
-      # Fallback to manual instructions
-      workspace_host = self.client.config.host.rstrip('/')
-      experiment_url = f'{workspace_host}/ml/experiments/{experiment_id}'
-
-      print('📋 Manual steps:')
-      print(f'   1. Open this URL: {experiment_url}')
-      print("   2. Click on the 'Permissions' tab")
-      print(f'   3. Grant {permissions} to service principal: {principal}')
-      print('\n⏸️  Please complete the manual permission setup, then press Enter to continue...')
-      input()
-
-  def grant_model_serving_permissions(self, app_name: str, endpoint_name: str) -> None:
+  def grant_model_serving_permissions(self, app_name: str, endpoint_name: str) -> bool:
     """Grant model serving endpoint access to a Databricks App.
 
     Args:
@@ -584,7 +570,7 @@ class DatabricksResourceManager:
         print("   Foundation Model endpoints typically don't require explicit permissions")
         print('   The app should have access by default if it has proper workspace permissions')
         print('✅ Skipping explicit permission grant for Foundation Model endpoint')
-        return
+        return True
 
       # Try to grant permissions to custom serving endpoints
       try:
@@ -608,29 +594,23 @@ class DatabricksResourceManager:
           f"✅ Granted CAN_QUERY permission on serving endpoint '{endpoint_name}' "
           f"to '{app_sp_display_name}'"
         )
+        return True
 
       except Exception as serving_error:
         print(f'⚠️  Could not grant serving endpoint permissions via SDK: {serving_error}')
-
         print('📋 Manual steps:')
         print(f'   1. Go to Databricks Apps → {app_name} → Edit')
         print('   2. Click Next → Add Resource → Serving Endpoint')
         print(f"   3. Select '{endpoint_name}' → Save")
-        print(
-          '\n⏸️  Please complete the manual serving endpoint setup, then press Enter to continue...'
-        )
-        input()
+        return False
 
     except Exception as e:
-      print(f'⚠️  Warning: Failed to grant model serving permissions: {e}')
+      print(f'❌ Failed to grant model serving permissions on {endpoint_name}: {e}')
       print('📋 Manual steps:')
       print(f'   1. Go to Databricks Apps → {app_name} → Edit')
       print('   2. Click Next → Add Resource → Serving Endpoint')
       print(f"   3. Select '{endpoint_name}' → Save")
-      print(
-        '\n⏸️  Please complete the manual serving endpoint setup, then press Enter to continue...'
-      )
-      input()
+      return False
 
   def get_app_service_principal(self, app_name: str) -> Optional[str]:
     """Get the service principal name for a Databricks App.
